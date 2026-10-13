@@ -7,7 +7,7 @@ Instructions for AI coding agents (and humans) working on this repo. Read [READM
 An AI-powered digital twin honeypot for Docker environments:
 read-only discovery → sanitization → AI-generated synthetic environment (versioned, immutable) → per-session disposable Linux twin that runs attacker commands for real → LLM fills only validated gaps → events and attack-path dashboard.
 
-Background research: [reports/LLM honeypot digital twin prior work.md](reports/LLM%20honeypot%20digital%20twin%20prior%20work.md) and [papers_limitations.xlsx](papers_limitations.xlsx). Nearest prior art to keep in mind: PARALLAX, TwinPot-Gen, Cowrie proxy mode, LLM shell honeypots.
+Background research: [reports/LLM honeypot digital twin prior work.md](reports/LLM%20honeypot%20digital%20twin%20prior%20work.md) and [Research and Limitations.xlsx](Research%20and%20Limitations.xlsx). Nearest prior art to keep in mind: PARALLAX, TwinPot-Gen, Cowrie proxy mode, LLM shell honeypots.
 
 ## 2. Non-negotiable rules
 
@@ -21,6 +21,14 @@ Background research: [reports/LLM honeypot digital twin prior work.md](reports/L
 8. **No secrets in the repo, images, logs or tests.** Use `.env` (git-ignored) and `.env.example`. Tests use fake canary values.
 9. Discovery is read-only and allowlisted. Do not point it at systems you are not authorized to observe.
 10. Do not run the honeypot on a public interface from a dev machine. Public exposure is Phase 7 only, on a dedicated Linux VPS.
+
+11. **The observed server is an input, never an assumption.** Code outside tests and `main-server/` /
+    `demo-servers/` must not mention a particular demo (names, tables, ports, frameworks). Every new
+    behaviour is exercised against more than one server shape (`test_generic_shapes.py`, the two-stack
+    Docker test).
+12. **AI sanitizer (NVIDIA NIM):** deterministic redaction always runs first and always has the last word
+    (`assert_clean`). The model only receives already-redacted text, can only remove or tighten, and its
+    output is validated in code. API keys live in `.env` only.
 
 If a task seems to need breaking a rule, stop and ask.
 

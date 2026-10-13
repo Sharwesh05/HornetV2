@@ -1,0 +1,61 @@
+# A second, deliberately different "real" server used to prove Hornet is not tied to one environment:
+# different project name, service names, images, ports, env var names, mounts and business domain.
+# Everything is fake. The secrets below are canaries so tests can prove the sanitizer removes them.
+# Start:  docker compose -f demo-servers/helpdesk/docker-compose.yml up -d
+name: helpdesk-staging
+
+services:
+  api:
+    image: python:3.12-slim
+    container_name: hd-api
+    command: ["python", "-m", "http.server", "9000"]
+    working_dir: /srv/helpdesk
+    ports:
+      - "127.0.0.1:9100:9000"
+    environment:
+      HELPDESK_SECRET_KEY: CANARY-HD-SECRET-KEY-aa11
+      SMTP_PASSWORD: CANARY-HD-SMTP-PASS-bb22
+      SENTRY_DSN: https://CANARYsentrykey33cc@o4500.ingest.sentry.io/1234
+      OIDC_CLIENT_SECRET: CANARY-HD-OIDC-SECRET-dd44
+      TICKET_DB_URL: postgresql://desk:CANARY-HD-PG-PASS-ee55@pg:5432/desk
+      BROKER_URL: redis://broker:6379/1
+      APP_ENV: staging
+      LISTEN_PORT: "9000"
+    labels:
+      maintainer: "Priya Raman <priya.raman@hd-canary.example>"
+      tier: backend
+    volumes:
+      - uploads:/var/lib/helpdesk/uploads
+    networks: [deskbus]
+    depends_on: [pg, broker]
+
+  worker:
+    image: python:3.12-slim
+    container_name: hd-worker
+    command: ["python", "-c", "import time; time.sleep(10**9)"]
+    environment:
+      TICKET_DB_URL: postgresql://desk:CANARY-HD-PG-PASS-ee55@pg:5432/desk
+      BROKER_URL: redis://broker:6379/1
+      WORKER_CONCURRENCY: "4"
+    networks: [deskbus]
+    depends_on: [pg, broker]
+
+  pg:
+    image: postgres:16-alpine
+    container_name: hd-pg
+    environment:
+      POSTGRES_USER: desk
+      POSTGRES_PASSWORD: CANARY-HD-PG-PASS-ee55
+      POSTGRES_DB: desk
+    networks: [deskbus]
+
+  broker:
+    image: redis:7-alpine
+    container_name: hd-broker
+    networks: [deskbus]
+
+networks:
+  deskbus:
+
+volumes:
+  uploads:

@@ -1,0 +1,36 @@
+# Management plane (dev). The attacker-facing twin runtime is NOT part of this file.
+name: hornet
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hornet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: hornet
+    volumes:
+      - hornet-pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hornet -d hornet"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      HORNET_ENV: prod
+      HORNET_ADMIN_API_KEY: ${HORNET_ADMIN_API_KEY:?set HORNET_ADMIN_API_KEY in .env}
+      HORNET_DATABASE_URL: postgresql+psycopg://hornet:${POSTGRES_PASSWORD}@db:5432/hornet
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  hornet-pgdata:

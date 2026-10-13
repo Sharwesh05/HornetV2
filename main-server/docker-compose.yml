@@ -1,0 +1,59 @@
+# The "real" server that Hornet observes. Everything here is fake demo data.
+# Start:  docker compose -f main-server/docker-compose.yml up -d --build
+# The secrets below are deliberately fake canaries so Phase 3 can prove the sanitizer removes them.
+name: shop-prod
+
+services:
+  web:
+    build: ./web
+    image: shop-web:1.0
+    container_name: shop-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      DATABASE_URL: postgresql://shop:CANARY-DB-PASSWORD-7f3a@db:5432/shop
+      REDIS_URL: redis://cache:6379/0
+      ADMIN_TOKEN: CANARY-ADMIN-TOKEN-91c2
+      STRIPE_API_KEY: sk_test_CANARY0000000000000000
+    labels:
+      com.hornet.demo: "main-server"
+      com.example.team: "storefront"
+    volumes:
+      - shop-logs:/var/log/shop
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+    networks: [shopnet]
+
+  db:
+    image: postgres:16-alpine
+    container_name: shop-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: CANARY-DB-PASSWORD-7f3a
+      POSTGRES_DB: shop
+    volumes:
+      - shop-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shop -d shop"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [shopnet]
+
+  cache:
+    image: redis:7-alpine
+    container_name: shop-cache
+    restart: unless-stopped
+    networks: [shopnet]
+
+networks:
+  shopnet:
+
+volumes:
+  shop-logs:
+  shop-pgdata:
