@@ -1,7 +1,6 @@
 .obsidian/
 reports/
 research_notes/
-scripts/
 
 # --- Secrets and local config (never commit) ---
 .env
