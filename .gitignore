@@ -1,0 +1,88 @@
+.obsidian/
+reports/
+research_notes/
+scripts/
+
+# --- Secrets and local config (never commit) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets/
+credentials*.json
+
+# --- Python ---
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.ipynb_checkpoints/
+
+# --- Node / frontend ---
+node_modules/
+frontend/dist/
+frontend/.vite/
+.npm/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Databases and runtime data ---
+*.sqlite
+*.sqlite3
+*.db
+pgdata/
+postgres-data/
+data/
+volumes/
+
+# --- Honeypot runtime artifacts (may contain attacker data or captured files) ---
+captures/
+session-logs/
+quarantine/
+twin-image/build/
+*.pcap
+*.pcapng
+
+# --- Logs and temp ---
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# --- Terraform / deployment state ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# --- Editors and OS ---
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Claude Code local state ---
+.claude/settings.local.json
+.claude/scratch/
