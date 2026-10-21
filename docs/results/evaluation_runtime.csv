@@ -1,0 +1,135 @@
+project,metric,detail,ms
+shop-prod,build,offline,3044.4
+shop-prod,session setup,until ready,494.4
+shop-prod,session setup,until ready,407.0
+shop-prod,session setup,until ready,479.4
+shop-prod,session setup,until ready,289.5
+shop-prod,session setup,until ready,435.4
+shop-prod,session setup,until ready,420.7
+shop-prod,session setup,until ready,432.1
+shop-prod,session setup,until ready,410.1
+shop-prod,session setup,until ready,433.1
+shop-prod,session setup,until ready,489.4
+shop-prod,command,shell builtin,113.3
+shop-prod,command,shell builtin,119.3
+shop-prod,command,shell builtin,100.9
+shop-prod,command,shell builtin,99.3
+shop-prod,command,shell builtin,141.8
+shop-prod,command,process,100.0
+shop-prod,command,process,112.5
+shop-prod,command,process,120.3
+shop-prod,command,process,100.9
+shop-prod,command,process,121.1
+shop-prod,command,read a file,105.1
+shop-prod,command,read a file,105.9
+shop-prod,command,read a file,140.3
+shop-prod,command,read a file,107.5
+shop-prod,command,read a file,110.9
+shop-prod,command,write a file,100.6
+shop-prod,command,write a file,110.8
+shop-prod,command,write a file,103.1
+shop-prod,command,write a file,119.5
+shop-prod,command,write a file,98.5
+shop-prod,command,list a directory,100.8
+shop-prod,command,list a directory,142.3
+shop-prod,command,list a directory,100.4
+shop-prod,command,list a directory,114.0
+shop-prod,command,list a directory,109.2
+shop-prod,command,fake database query,132.8
+shop-prod,command,fake database query,155.3
+shop-prod,command,fake database query,126.9
+shop-prod,command,fake database query,161.5
+shop-prod,command,fake database query,123.6
+shop-prod,command,fake website request,127.5
+shop-prod,command,fake website request,111.6
+shop-prod,command,fake website request,136.7
+shop-prod,command,fake website request,99.5
+shop-prod,command,fake website request,125.2
+shop-prod,ssh,login + first command (creates the twin),564.6
+shop-prod,ssh,"one command, end to end",100.7
+shop-prod,ssh,"one command, end to end",99.9
+shop-prod,ssh,"one command, end to end",114.7
+shop-prod,ssh,"one command, end to end",109.7
+shop-prod,ssh,"one command, end to end",99.1
+shop-prod,ssh,"one command, end to end",100.2
+shop-prod,ssh,"one command, end to end",100.5
+shop-prod,ssh,"one command, end to end",115.1
+shop-prod,ssh,"one command, end to end",116.3
+shop-prod,ssh,"one command, end to end",101.4
+shop-prod,ssh,"one command, end to end",100.1
+shop-prod,ssh,"one command, end to end",99.4
+shop-prod,ssh,"one command, end to end",143.3
+shop-prod,ssh,"one command, end to end",100.1
+shop-prod,ssh,"one command, end to end",107.3
+shop-prod,ssh,"one command, end to end",109.0
+shop-prod,ssh,"one command, end to end",109.8
+shop-prod,ssh,"one command, end to end",110.2
+shop-prod,ssh,"one command, end to end",101.8
+shop-prod,ssh,"one command, end to end",117.7
+helpdesk-staging,build,offline,3172.4
+helpdesk-staging,session setup,until ready,429.0
+helpdesk-staging,session setup,until ready,300.8
+helpdesk-staging,session setup,until ready,297.6
+helpdesk-staging,session setup,until ready,414.4
+helpdesk-staging,session setup,until ready,423.9
+helpdesk-staging,session setup,until ready,445.3
+helpdesk-staging,session setup,until ready,472.8
+helpdesk-staging,session setup,until ready,421.9
+helpdesk-staging,session setup,until ready,283.4
+helpdesk-staging,session setup,until ready,446.9
+helpdesk-staging,command,shell builtin,100.6
+helpdesk-staging,command,shell builtin,96.9
+helpdesk-staging,command,shell builtin,142.9
+helpdesk-staging,command,shell builtin,100.0
+helpdesk-staging,command,shell builtin,99.7
+helpdesk-staging,command,process,107.8
+helpdesk-staging,command,process,106.9
+helpdesk-staging,command,process,110.3
+helpdesk-staging,command,process,99.2
+helpdesk-staging,command,process,112.2
+helpdesk-staging,command,read a file,102.0
+helpdesk-staging,command,read a file,116.2
+helpdesk-staging,command,read a file,103.1
+helpdesk-staging,command,read a file,99.7
+helpdesk-staging,command,read a file,109.1
+helpdesk-staging,command,write a file,136.5
+helpdesk-staging,command,write a file,97.5
+helpdesk-staging,command,write a file,100.2
+helpdesk-staging,command,write a file,113.1
+helpdesk-staging,command,write a file,111.0
+helpdesk-staging,command,list a directory,99.3
+helpdesk-staging,command,list a directory,101.0
+helpdesk-staging,command,list a directory,127.0
+helpdesk-staging,command,list a directory,105.0
+helpdesk-staging,command,list a directory,101.1
+helpdesk-staging,command,fake database query,168.4
+helpdesk-staging,command,fake database query,132.1
+helpdesk-staging,command,fake database query,153.6
+helpdesk-staging,command,fake database query,126.6
+helpdesk-staging,command,fake database query,161.7
+helpdesk-staging,command,fake website request,106.6
+helpdesk-staging,command,fake website request,118.1
+helpdesk-staging,command,fake website request,109.1
+helpdesk-staging,command,fake website request,122.2
+helpdesk-staging,command,fake website request,109.9
+helpdesk-staging,ssh,login + first command (creates the twin),542.8
+helpdesk-staging,ssh,"one command, end to end",100.1
+helpdesk-staging,ssh,"one command, end to end",112.0
+helpdesk-staging,ssh,"one command, end to end",110.9
+helpdesk-staging,ssh,"one command, end to end",100.2
+helpdesk-staging,ssh,"one command, end to end",101.5
+helpdesk-staging,ssh,"one command, end to end",113.3
+helpdesk-staging,ssh,"one command, end to end",118.6
+helpdesk-staging,ssh,"one command, end to end",99.4
+helpdesk-staging,ssh,"one command, end to end",99.8
+helpdesk-staging,ssh,"one command, end to end",98.9
+helpdesk-staging,ssh,"one command, end to end",144.7
+helpdesk-staging,ssh,"one command, end to end",100.5
+helpdesk-staging,ssh,"one command, end to end",99.7
+helpdesk-staging,ssh,"one command, end to end",107.8
+helpdesk-staging,ssh,"one command, end to end",105.9
+helpdesk-staging,ssh,"one command, end to end",110.7
+helpdesk-staging,ssh,"one command, end to end",101.5
+helpdesk-staging,ssh,"one command, end to end",99.6
+helpdesk-staging,ssh,"one command, end to end",113.7
+helpdesk-staging,ssh,"one command, end to end",117.8

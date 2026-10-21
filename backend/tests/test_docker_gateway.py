@@ -178,6 +178,33 @@ def test_two_simultaneous_connections_cannot_see_each_other(env):
     assert "a-home" not in b_home.stdout
 
 
+def test_fake_service_state_is_not_shared_between_visitors(env):
+    """Phase 7.1: two simultaneous visitors each talk to their own fake services. What one writes (here into the
+    fake cache), the other never sees."""
+    redis = svc_of(env, "redis")
+    if not redis:
+        pytest.skip("this demo server has no cache service")
+
+    async def scenario(gw):
+        a, b = await login(gw, "alice"), await login(gw, "bob")
+        out = {}
+        for name, c in (("a", a), ("b", b)):
+            conf = next(p for p in (await c.run("grep -rl requirepass /etc 2>/dev/null", check=False)).stdout.split())
+            pw = (await c.run(f"grep requirepass {conf}", check=False)).stdout.split()[-1]
+            out[name] = f"redis-cli -h {redis} -a '{pw}' --no-auth-warning"
+        await a.run(f"{out['a']} SET visitor-a-marker written-by-a", check=False)
+        out["a_sees"] = (await a.run(f"{out['a']} GET visitor-a-marker", check=False)).stdout.strip()
+        out["b_sees"] = (await b.run(f"{out['b']} GET visitor-a-marker", check=False)).stdout.strip()
+        out["b_keys"] = (await b.run(f"{out['b']} KEYS 'visitor-*'", check=False)).stdout.strip()
+        a.close()
+        b.close()
+        return out
+
+    out = run_gateway(env, scenario)
+    assert out["a_sees"] == "written-by-a"          # the write worked for the visitor who made it
+    assert out["b_sees"] == "" and out["b_keys"] == ""  # and is invisible to the other one
+
+
 def test_reconnecting_gives_a_clean_twin_and_the_old_one_is_destroyed(env):
     async def scenario(gw):
         first = await login(gw)

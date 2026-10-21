@@ -759,4 +759,8 @@ reusing). So it is stored with safeguards:
 - **Phase 6 (dashboard): done.** Live feed, session replay, raw-vs-AI inspector, environment tree, environment
   management; XSS-safe rendering tested. **Phase 6.5:** redesigned for non-technical users (plain English,
   "What happened" summaries, glossary, light/dark). See *Dashboard* above.
-- **Next:** Phase 7, demo security and essential evaluation.
+- **Phase 7 (demo security and essential evaluation): done.** No egress by any protocol, cross-session isolation of
+  files, processes and fake-service state, canary secrets absent from every model prompt, log and table, a startup
+  check that refuses unsafe demo settings (`python -m scripts.dev safety`), runtime measurements
+  (`docs/results/evaluation.md`) and the limitations table (`docs/limitations.md`).
+- **Next:** Phase 8, documentation and the final presentation. Phase H (full hardening) follows the presentation.

@@ -19,13 +19,19 @@ def resolve_database_url(url: str) -> str:
     prefix = "sqlite:///"
     if not url.startswith(prefix) or url == prefix + ":memory:":
         return url
-    path = Path(url[len(prefix):])
-    if not path.parts or path.is_absolute() or (len(path.parts[0]) == 2 and path.parts[0][1] == ":"):
+    raw = url[len(prefix):]
+    # absolute = a leading slash on every OS (Path("/x").is_absolute() is False on Windows), or a Windows drive path
+    if not raw or raw.startswith(("/", "\\")) or (len(raw) >= 2 and raw[1] == ":"):
         return url  # empty (memory), absolute, or a Windows drive path
-    return prefix + (_REPO_ROOT / path).as_posix()
+    return prefix + (_REPO_ROOT / Path(raw)).as_posix()
 
 
 log = logging.getLogger("hornet.config")
+
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+# the demo profile's ceilings: the defaults below; HORNET_ENV=dev may only make them tighter
+DEMO_LIMITS = {"twin_timeout_ms": 5000, "twin_output_limit_bytes": 65536, "twin_memory_mb": 128, "twin_cpus": 0.5,
+               "twin_pids": 64, "twin_tmpfs_mb": 16, "max_active_sessions": 5, "session_ttl_s": 900, "idle_ttl_s": 300}
 
 _PLACEHOLDER_KEYS = {"change-me", "changeme", "admin", "password", "secret", "test"}
 
@@ -131,12 +137,47 @@ class Settings(BaseSettings):
             raise ValueError("the SSH gateway may only bind to loopback outside HORNET_ENV=prod (AGENTS.md rule 10)")
         if any(o == "*" or not o.startswith(("http://", "https://")) for o in self.dashboard_origin_list()):
             raise ValueError("HORNET_DASHBOARD_ORIGINS must list explicit http(s) origins; '*' is not allowed")
+        if self.env == "dev":
+            self._demo_safety()
         if self.ai_provider == "nim":
             if self.nvidia_api_key is None or len(self.nvidia_api_key.get_secret_value()) < 10:
                 raise ValueError("HORNET_AI_PROVIDER=nim needs NVIDIA_API_KEY (put it in .env, never in code)")
             if not self.nim_base_url.startswith(("https://", "http://localhost", "http://127.0.0.1")):
                 raise ValueError("HORNET_NIM_BASE_URL must be https (plain http is allowed for localhost only)")
         return self
+
+    def _demo_safety(self) -> None:
+        """HORNET_ENV=dev is the demo profile on a developer machine (AGENTS.md rule 10). It may tighten anything but
+        loosen nothing: everything stays on loopback, raw attacker input is never stored, and no twin limit is looser
+        than its default. Anything else needs a deliberate HORNET_ENV=prod deployment (Phase H)."""
+        problems = []
+        for origin in self.dashboard_origin_list():
+            host = origin.split("://", 1)[-1].split("/", 1)[0].rsplit(":", 1)[0].strip("[]")
+            if host not in LOOPBACK_HOSTS:
+                problems.append(f"dashboard origin {origin} is not on this machine (HORNET_DASHBOARD_ORIGINS)")
+        if self.store_raw_commands:
+            problems.append("raw attacker input must not be stored in the demo profile (HORNET_STORE_RAW_COMMANDS)")
+        for name, ceiling in DEMO_LIMITS.items():
+            if getattr(self, name) > ceiling:
+                problems.append(f"HORNET_{name.upper()}={getattr(self, name)} is looser than the demo limit {ceiling}")
+        if problems:
+            raise ValueError("unsafe demo configuration (HORNET_ENV=dev): " + "; ".join(problems))
+
+    def safety_summary(self) -> dict[str, str]:
+        """What `python -m scripts.dev safety` prints: the settings that keep the demo safe, as they are now."""
+        policy = self.execution_policy()
+        return {
+            "profile": self.env,
+            "ssh gateway": f"{'on' if self.gateway_enabled else 'off'}, {self.gateway_host}:{self.gateway_port}",
+            "dashboard origins": ", ".join(self.dashboard_origin_list()),
+            "twin limits": (f"{policy.timeout_ms} ms per command, {policy.memory_mb} MB, {policy.cpus} CPU, "
+                            f"{policy.pids} processes, {policy.tmpfs_mb} MB writable, {policy.output_limit_bytes} B output"),
+            "sessions": f"at most {policy.max_active_sessions} at once, {policy.session_ttl_s} s max, {policy.idle_ttl_s} s idle",
+            "commands stored": "redacted only" if not self.store_raw_commands else "redacted + RAW",
+            "login passwords stored": "as text" if self.gateway_log_passwords else "length + hash only",
+            "retention": f"{self.retention_days} days (python -m scripts.dev purge)",
+            "ai": f"{self.ai_provider}; sanitizer review {self.sanitizer_mode}; synthesis {'on' if self.ai_synth_enabled else 'off'}",
+        }
 
     @property
     def sanitizer_mode(self) -> str:

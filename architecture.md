@@ -17,7 +17,8 @@ An AI-assisted **digital-twin honeypot for Docker environments**. It watches an 
 | 4. Gateway, persistent shell, running services | SSH front door, per-connection twin, fake HTTP/PostgreSQL/Redis, linked event stream | **Done and tested** (also run by hand with real OpenSSH) |
 | **5. AI synthesis** | AI answers what the fake services can't, validated in code | **Not started.** Only groundwork exists (section 8.5) |
 | 6. Dashboard | React UI, live feed, session replay, raw-vs-AI inspector, environment tree | **Done** (`frontend/`, section 10.1) |
-| 7. Hardening, deployment, evaluation | Linux host, gVisor/microVM, fingerprint resistance, baselines | Not started |
+| 7. Demo security and essential evaluation | Egress/cross-session/canary tests, demo safety check, measurements, limitations | **Done** (`docs/results/evaluation.md`, `docs/limitations.md`) |
+| H. Full hardening (after the presentation) | gVisor, escape suite, Postgres triggers, deployment | Not started |
 | 8. Capstone documentation | Threat model, user guide, evaluation report | Not started |
 
 Note: the second git commit is titled "Phases 0-5 foundation". That is generous: Phases 1 to 4 were implemented then; Phase 5A (out-of-band AI proposals) was added later (section 10).

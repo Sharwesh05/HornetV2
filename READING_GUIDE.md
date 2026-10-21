@@ -104,7 +104,9 @@ New in Phase S:
 Phase 5A (out-of-band AI proposals) is built: `ai/synthesis*.py`, `tests/ai_consistency/`, README *AI synthesis*.
 Phase 6 (dashboard) is built: `frontend/` (start at `src/App.tsx`, then `components/ExecutionInspector.tsx` and
 `components/Replay.tsx`), plus `api/live.py` and `GET /sessions/{id}/tree-state` in `api/v1.py`.
-Next, once 6 is approved: Phase 7 (demo security and evaluation),
+Phase 7 is built: `docs/limitations.md`, `docs/results/evaluation.md`, `scripts/evaluate.py`,
+`python -m scripts.dev safety`.
+Next, once 7 is approved:
 8 (docs and presentation), and H (full hardening, mandatory).
 
 ## 7. Known limits (from the docs, still true)

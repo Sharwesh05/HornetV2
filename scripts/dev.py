@@ -9,6 +9,7 @@
     python -m scripts.dev demo-up      build the twin base image, start both demo servers, migrate
     python -m scripts.dev demo-down    stop the demo servers and remove any leftover twins
     python -m scripts.dev purge        delete ended sessions older than HORNET_RETENTION_DAYS (audited)
+    python -m scripts.dev safety       show the settings that keep the demo safe (fails if they are unsafe)
     python -m scripts.dev ui-setup     install the dashboard's npm packages (frontend/, exact versions from the lockfile)
     python -m scripts.dev ui           run the dashboard on http://127.0.0.1:5173 (needs `api` running)
     python -m scripts.dev ui-check     dashboard lint, type check, tests and production build
@@ -122,6 +123,23 @@ def demo_down(_args) -> None:
     print(f"removed {len(ids)} leftover twin container(s)")
 
 
+def safety(_args) -> None:
+    if venv_python().exists() and Path(sys.prefix).resolve() != VENV.resolve():
+        sys.exit(run([python(), "-m", "scripts.dev", "safety"], check=False))  # needs the project's packages
+    sys.path.insert(0, str(BACKEND))
+    from pydantic import ValidationError
+
+    from app.config import Settings
+
+    try:
+        summary = Settings().safety_summary()
+    except ValidationError as exc:
+        sys.exit(f"UNSAFE configuration, the API would refuse to start:\n{exc}")
+    width = max(len(k) for k in summary)
+    for k, v in summary.items():
+        print(f"{k:<{width}}  {v}")
+
+
 def ui_setup(_args) -> None:
     run([need("npm"), "ci"], cwd=FRONTEND)
 
@@ -164,6 +182,7 @@ def main(argv: list[str] | None = None) -> None:
         ("down", down, "stop the management compose stack"),
         ("demo-up", demo_up, "build the base image, start both demo servers, migrate"),
         ("demo-down", demo_down, "stop the demo servers, remove leftover twins"),
+        ("safety", safety, "show the demo safety settings"),
         ("ui-setup", ui_setup, "npm ci in frontend/"),
         ("ui", ui, "run the dashboard dev server"),
         ("ui-check", ui_check, "dashboard lint, typecheck, tests, build"),

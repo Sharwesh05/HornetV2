@@ -86,6 +86,23 @@ def test_no_network(twin):
     assert "rc=0" not in r.stdout
 
 
+def test_no_egress_by_any_protocol(twin):
+    """Phase 7.1: default-deny egress, not only for TCP. Every probe must fail inside the twin."""
+    assert "default" not in run(twin, "ip route show; ip -6 route show").stdout     # no route out at all
+    probes = {
+        "dns lookup": "getent hosts example.com",
+        "dns to a public resolver (udp)": "timeout 3 bash -c 'echo x > /dev/udp/1.1.1.1/53'",
+        "udp": "timeout 3 bash -c 'echo x > /dev/udp/203.0.113.10/9999'",
+        "icmp": "ping -c 1 -W 2 1.1.1.1",
+        "ipv6 tcp": "timeout 3 bash -c 'exec 3<>/dev/tcp/2606:4700:4700::1111/443'",
+        "https by name": "curl -m 3 -sS https://example.com",
+        "http by address": "curl -m 3 -sS http://93.184.215.14/",
+    }
+    for name, cmd in probes.items():
+        r = run(twin, f"{cmd} >/dev/null 2>&1; echo rc=$?")
+        assert "rc=0" not in r.stdout, f"egress worked: {name}"
+
+
 def test_no_docker_socket_or_host_secrets(twin):
     assert run(twin, "test -e /var/run/docker.sock").exit_code != 0
     assert run(twin, "grep -c docker.sock /proc/mounts").stdout.strip() == "0"

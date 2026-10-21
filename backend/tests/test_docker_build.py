@@ -202,3 +202,89 @@ def test_full_build_publish_and_twin(db, session_factory, client, tmp_path, proj
         builder.remove(image.image_digest)
 
     assert "environment.build" in {a.action for a in db.scalars(select(AdminAuditEvent))}
+
+
+class RecordingModel:
+    """A stand-in model (is_model=True, so every AI step runs) that answers each task harmlessly and records every
+    prompt it was given: the context, the system policy and the schema."""
+
+    name, version, is_model = "recording", "1", True
+
+    def __init__(self):
+        import threading
+
+        self.calls: list[dict] = []
+        self._lock = threading.Lock()
+
+    def generate_structured(self, *, system_policy, context, output_schema):
+        with self._lock:
+            self.calls.append({"system_policy": system_policy, "context": context, "output_schema": output_schema})
+        task = context.get("task")
+        if task == "sanitization_review":
+            return {"findings": [], "secret_env_names": []}
+        if task == "documents":
+            return TemplateProvider().generate_structured(system_policy=system_policy, context=context,
+                                                          output_schema=output_schema)
+        if task == "service_gap":
+            return {"postgres": {"kind": "error", "code": "42601", "message": "syntax error"},
+                    "redis": {"kind": "error", "message": "ERR unknown command"},
+                    "http": {"kind": "response", "status": 404, "body": {"error": "not found"}}}[context["protocol"]]
+        return {}  # data_model: an unusable answer, so the keyword default is used
+
+
+@pytest.mark.parametrize("project", PROJECTS)
+def test_canaries_reach_no_model_prompt_and_no_log(db, session_factory, client, tmp_path, project, caplog):
+    """Phase 7.2: the canary secrets planted in the observed server appear in nothing Hornet produces: not in any
+    prompt sent to a model (sanitization review, data model, documents, and run-time gap synthesis), not in any log
+    line, not in the database (AI rows included), the build folder, or the built image."""
+    import logging
+
+    from app.ai.synthesis import SynthesisWorker
+    from app.environment.image_builder import DockerImageBuilder
+    from app.runtime.docker_driver import HardenedDockerDriver
+
+    caplog.set_level(logging.DEBUG)
+    cfg = STACKS[project]
+    model = RecordingModel()
+    builder = DockerImageBuilder(client)
+    snap = pipeline.build_from_docker(
+        db, docker=ReadOnlyDocker(client), image_builder=builder, provider=model, project=project,
+        allowed_projects={project}, base_image=BASE, build_dir=tmp_path, actor="itest", now=datetime.now(UTC),
+        forbidden=cfg["canaries"], sanitizer_mode="required",
+    )
+    image = db.scalars(select(TwinImage).where(TwinImage.snapshot_id == snap.id)).one()
+    services.publish_snapshot(db, snap)
+    db.commit()
+    synth = SynthesisWorker(model, session_factory, timeout_s=5, max_per_session=20)
+    mgr = sm.SessionManager(HardenedDockerDriver(client), session_factory, ExecutionPolicy(timeout_ms=8000), BASE,
+                            synthesizer=synth)
+    sess = mgr.create_session()
+    try:
+        # an attacker hunting for secrets, and asking the fake services things they cannot answer
+        for cmd in ("env", "cat ~/.pgpass ~/.bash_history 2>/dev/null", "grep -rI -i password /etc /var/www /srv /opt 2>/dev/null | head -50"):
+            mgr.execute(sess.id, cmd, stateful=True)
+        pgpass = mgr.execute(sess.id, "cat ~/.pgpass 2>/dev/null").stdout.strip().split(":")
+        if len(pgpass) >= 5:
+            mgr.execute(sess.id, f"psql -h {pgpass[0]} -U {pgpass[3]} {pgpass[2]} -c 'explain select 1' 2>&1")
+        hosts = mgr.execute(sess.id, "awk '/^127\\.0\\.1\\./{print $2}' /etc/hosts").stdout.split()
+        for h in hosts:
+            mgr.execute(sess.id, f"curl -s -m 3 http://{h}:8080/admin/login http://{h}:9000/admin/login 2>&1 | head -c 200")
+        synth.drain()
+    finally:
+        mgr.destroy_session(sess.id)
+        mgr.reconcile()
+        synth.shutdown()
+    try:
+        tasks = {c["context"].get("task") for c in model.calls}
+        assert {"sanitization_review", "data_model", "documents"} <= tasks  # every build-time AI step really ran
+        assert "service_gap" in tasks                                     # and run-time synthesis did too
+        prompts = json.dumps(model.calls, default=str)
+        blob = [prompts, caplog.text]
+        for table in db.get_bind().dialect.get_table_names(db.connection()):
+            blob += [repr(r) for r in db.execute(text(f'SELECT * FROM "{table}"')).fetchall()]
+        blob += [p.read_text(errors="ignore") for p in tmp_path.rglob("*") if p.is_file()]
+        joined = "\n".join(blob)
+        leaked = [c for c in cfg["canaries"] if c in joined]
+        assert not leaked, f"canaries leaked: {leaked} (in prompts: {[c for c in leaked if c in prompts]})"
+    finally:
+        builder.remove(image.image_digest)
