@@ -162,6 +162,44 @@ def test_session_endpoints_need_auth(twin_client):
     assert twin_client.post("/api/v1/sessions").status_code == 401
     assert twin_client.post(f"/api/v1/sessions/{uuid.uuid4()}/exec", json={"command": "id"}).status_code == 401
     assert twin_client.delete(f"/api/v1/sessions/{uuid.uuid4()}").status_code == 401
+    for sub in ("executions", "overlay"):
+        assert twin_client.get(f"/api/v1/sessions/{uuid.uuid4()}/{sub}").status_code == 401
+
+
+def test_session_executions_and_overlay(twin_client):
+    c = twin_client
+    _publish(c)
+    sid = c.post("/api/v1/sessions").json()["id"]
+    c.post(f"/api/v1/sessions/{sid}/exec", json={"command": "echo hi"})
+    c.post(f"/api/v1/sessions/{sid}/exec", json={"command": "export DB_PASSWORD=CANARY-API-pw-77"})
+    c.post(f"/api/v1/sessions/{sid}/exec", json={"command": "touch /tmp/dropper"})
+
+    r = c.get(f"/api/v1/sessions/{sid}/executions")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 3 and [i["operation"] for i in body["items"]] == ["command"] * 3
+    first, second = body["items"][0], body["items"][1]
+    assert first["command"] == "echo hi" and first["stdout"] == "hi\n" and first["exit_code"] == 0
+    assert first["source"] == "execution" and first["command_raw"] is None and len(first["input_hash"]) == 64
+    assert second["command"].startswith("export DB_PASSWORD=<REDACTED:")
+    assert "CANARY-API-pw-77" not in str(second["command"]) + str(second["command_raw"])
+
+    page = c.get(f"/api/v1/sessions/{sid}/executions", params={"limit": 1, "offset": 2}).json()
+    assert page["total"] == 3 and [i["command"] for i in page["items"]] == ["touch /tmp/dropper"]
+
+    overlay = c.get(f"/api/v1/sessions/{sid}/overlay").json()
+    assert {(o["path"], o["operation"]) for o in overlay["items"]} >= {("/tmp/dropper", "created")}
+    assert all(o["request_id"] for o in overlay["items"])
+
+    audits = [a for a in c.get("/api/v1/audit").json()["items"] if a["action"] == "session.executions.read"]
+    assert len(audits) == 2 and audits[0]["target"] == sid and audits[0]["actor"] == "admin-api-key"
+
+    missing = uuid.uuid4()
+    assert c.get(f"/api/v1/sessions/{missing}/executions").status_code == 404
+    assert c.get(f"/api/v1/sessions/{missing}/overlay").status_code == 404
+    # command text never leaks into public or summary endpoints
+    for path in ("/api/v1/health", "/api/v1/analytics/overview"):
+        assert "DB_PASSWORD" not in c.get(path).text and "echo hi" not in c.get(path).text
 
 
 # ---- build from a discovered Docker environment (fakes; real Docker is in test_docker_build) ----
@@ -245,3 +283,12 @@ def test_test_suite_is_hermetic_and_never_uses_a_real_model():
 
     settings = get_settings()
     assert settings.ai_provider == "template" and settings.sanitizer_mode == "off"
+    # regression: a developer .env with HORNET_GATEWAY_ENABLED=true made every API test start the gateway
+    assert settings.gateway_enabled is False and settings.env == "dev"
+    assert not (settings.nvidia_api_key and settings.nvidia_api_key.get_secret_value())
+
+
+def test_openapi_declares_api_key_scheme(client):
+    """Regression: /docs must show the Authorize button, which needs a declared security scheme."""
+    schemes = client.get("/openapi.json").json()["components"]["securitySchemes"]
+    assert any(v["type"] == "apiKey" and v["in"] == "header" and v["name"] == "X-API-Key" for v in schemes.values())

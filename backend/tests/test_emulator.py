@@ -403,3 +403,54 @@ def test_events_are_bounded_and_text_is_truncated(svc):
     http(svc.ports["http"], "GET", "/api/" + "x" * 5000)
     assert all(len(json.dumps(e)) < 5000 for e in svc.log())
     assert max(len(str(e.get("action", ""))) for e in svc.log()) <= emu.MAX_TEXT + 3
+
+
+def test_every_event_satisfies_the_service_event_contract(svc):
+    """docs/service-events.md: every line the emulator writes (all protocols, success and failure) fits the contract."""
+    from app.orchestration.service_events import contract_problems, is_request
+
+    http(svc.ports["http"], "GET", "/api/customers", headers={"User-Agent": "curl/8"})
+    http(svc.ports["http"], "GET", "/no/such/route")
+    http(svc.ports["http"], "POST", "/api/customers", body={"email": "x@example.test"})
+    r = RedisClient(svc.ports["redis"])
+    r.cmd("AUTH", REDIS_PW)
+    r.cmd("GET", "session:1")
+    r.cmd("NOSUCH", "x")
+    pg = PgClient(svc.ports["pg"])
+    pg.query("select * from customers")
+    pg.query("gibberish here")
+    pg.query("select * from no_such_table")
+
+    events = svc.log()
+    assert {e["proto"] for e in events if is_request(e)} == {"http", "postgres", "redis"}
+    assert any(e.get("type") == "ready" for e in events)
+    assert {json.dumps(e): contract_problems(e) for e in events if contract_problems(e)} == {}
+    assert any(e.get("unsupported") is True for e in events if e.get("proto") == "postgres")
+    assert any(e.get("unsupported") is True for e in events if e.get("proto") == "redis")
+
+
+def test_contract_checker_rejects_malformed_events():
+    from app.orchestration.service_events import contract_problems
+
+    good = {"ts": "2026-10-18T00:00:00.000+00:00", "service": "db", "proto": "redis", "action": "GET", "status": "ok"}
+    assert contract_problems(good) == []
+    assert contract_problems({k: v for k, v in good.items() if k != "action"}) == ["missing action"]
+    assert contract_problems({**good, "proto": "ftp"}) == ["unknown proto 'ftp'"]
+    assert contract_problems({**good, "unsupported": "yes"}) == ["unsupported has type str"]
+    assert contract_problems({**good, "surprise": 1}) == ["unexpected field surprise"]
+    assert contract_problems({**good, "sql": "x" * 1000}) == ["sql is not truncated"]
+    assert contract_problems({"type": "bogus"}) == ["unknown lifecycle line: 'bogus'"]
+
+
+@pytest.mark.parametrize("method,path,unsupported", [
+    ("GET", "/api/customers", False),           # served
+    ("GET", "/api/customers/999", False),       # a missing row of a known table is a normal answer
+    ("GET", "/admin/login", True),              # unknown route
+    ("GET", "/api/invoices", True),             # unknown table
+    ("PATCH", "/api/customers", True),          # method the emulator does not model (405)
+    ("POST", "/api/customers", False),          # validation errors are normal answers (400)
+])
+def test_http_flags_unsupported_requests_for_the_ai_layer(svc, method, path, unsupported):
+    http(svc.ports["http"], method, path, body={} if method in ("POST", "PATCH") else None)
+    ev = [e for e in svc.log() if e.get("proto") == "http"][-1]
+    assert ev["unsupported"] is unsupported, ev

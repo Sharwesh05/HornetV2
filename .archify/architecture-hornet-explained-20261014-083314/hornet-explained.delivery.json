@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "dc6f0fba-c308-4d00-b59e-de36a2345faa",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-explained-20261014-083314/candidate.json",
+  "output": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-explained-20261014-083314/hornet-explained.html",
+  "specification": {
+    "sha256": "625bbb5930fad184beb70d04099976dbfba994eb2c93323ed250f12d90e16404",
+    "bytes": 7692
+  },
+  "artifact": {
+    "sha256": "47d93ff99fd2bfdee08e40c6ae670b796672057d3d6f8070c353a3a54cf5e0e5",
+    "bytes": 776340
+  }
+}

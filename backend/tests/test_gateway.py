@@ -65,7 +65,9 @@ def test_host_key_is_stable_across_restarts(tmp_path):
 
 
 def test_login_requires_the_accepting_attempt_and_logs_every_try(tmp_path, session_factory, db):
-    mgr, _, cfg = make_env(tmp_path, session_factory, db, gateway_accept_after=3, gateway_weak_passwords="toor")
+    # password text is opt-in (HORNET_GATEWAY_LOG_PASSWORDS=true); the default keeps only length + hash
+    mgr, _, cfg = make_env(tmp_path, session_factory, db, gateway_accept_after=3, gateway_weak_passwords="toor",
+                           gateway_log_passwords=True)
 
     class Tries(asyncssh.SSHClient):
         def __init__(self):
@@ -378,7 +380,9 @@ def test_per_address_connection_limit(tmp_path, session_factory, db):
         gw = await start_gateway(mgr, cfg, session_factory, port=0)
         try:
             a, b = await connect(gw), await connect(gw)
-            with pytest.raises(asyncssh.Error):
+            # the server drops the over-limit connection: asyncssh reports it as asyncssh.Error on Windows,
+            # but on Linux the reset arrives first and surfaces as ConnectionResetError (an OSError)
+            with pytest.raises((asyncssh.Error, OSError)):
                 await connect(gw)
             a.close()
             await a.wait_closed()

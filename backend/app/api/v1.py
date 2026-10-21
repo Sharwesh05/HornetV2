@@ -10,6 +10,7 @@ from app import schemas, services
 from app.ai.nim_provider import NimProvider
 from app.ai.provider import TemplateProvider
 from app.api.auth import require_admin
+from app.api.live import router as live_router
 from app.config import Settings, get_settings
 from app.db import get_db, get_sessionmaker
 from app.discovery.docker_inventory import (
@@ -23,10 +24,14 @@ from app.environment.image_builder import DockerImageBuilder
 from app.graph import PathError
 from app.models import (
     AdminAuditEvent,
+    AiSynthesis,
     EnvironmentSnapshot,
+    ExecutionObservation,
+    ExecutionRequest,
     GatewayEvent,
     HoneypotSession,
     SessionEvent,
+    SessionOverlay,
     SessionStatus,
     SnapshotStatus,
     VirtualNode,
@@ -257,10 +262,23 @@ def list_sessions(
 ):
     limit, offset = _page(settings, limit, offset)
     total = db.scalar(select(func.count()).select_from(HoneypotSession)) or 0
-    items = db.scalars(
+    rows = db.scalars(
         select(HoneypotSession).order_by(HoneypotSession.started_at.desc()).limit(limit).offset(offset)
     ).all()
-    return schemas.Page(items=items, total=total, limit=limit, offset=offset)
+    return schemas.Page(items=_with_counts(db, rows), total=total, limit=limit, offset=offset)
+
+
+def _with_counts(db: Session, sessions) -> list[schemas.SessionOut]:
+    """Sessions plus how many commands each ran and how many AI proposals (gaps) they produced. Counts only."""
+    ids = [s.id for s in sessions]
+    commands = dict(db.execute(select(ExecutionRequest.session_id, func.count()).where(
+        ExecutionRequest.session_id.in_(ids)).group_by(ExecutionRequest.session_id)).all()) if ids else {}
+    gaps = dict(db.execute(select(ExecutionRequest.session_id, func.count(AiSynthesis.id))
+                           .join(AiSynthesis, AiSynthesis.request_id == ExecutionRequest.id)
+                           .where(ExecutionRequest.session_id.in_(ids))
+                           .group_by(ExecutionRequest.session_id)).all()) if ids else {}
+    return [schemas.SessionOut.model_validate(s).model_copy(
+        update={"commands": commands.get(s.id, 0), "ai_gaps": gaps.get(s.id, 0)}) for s in sessions]
 
 
 @admin.get("/sessions/{session_id}", response_model=schemas.SessionOut)
@@ -268,7 +286,7 @@ def get_session(session_id: uuid.UUID, db: Session = Depends(get_db)):
     sess = db.get(HoneypotSession, session_id)
     if sess is None:
         raise HTTPException(404, "session not found")
-    return sess
+    return _with_counts(db, [sess])[0]
 
 
 @admin.get("/sessions/{session_id}/events", response_model=schemas.Page[schemas.EventOut])
@@ -293,6 +311,108 @@ def session_events(
         for e in rows
     ]
     return schemas.Page(items=items, total=total, limit=limit, offset=offset)
+
+
+@admin.get("/sessions/{session_id}/executions", response_model=schemas.Page[schemas.ExecutionOut])
+def session_executions(
+    session_id: uuid.UUID,
+    limit: int | None = Query(default=None, ge=1),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    actor: str = Depends(require_admin),
+):
+    """Every command of a session in order: the redacted command, its raw execution evidence and, separately, any
+    AI proposals for requests the fake services could not answer. Reads are audited because the output can contain
+    whatever the attacker typed."""
+    if db.get(HoneypotSession, session_id) is None:
+        raise HTTPException(404, "session not found")
+    limit, offset = _page(settings, limit, offset)
+    q = (select(ExecutionRequest, ExecutionObservation)
+         .outerjoin(ExecutionObservation, ExecutionObservation.request_id == ExecutionRequest.id)
+         .where(ExecutionRequest.session_id == session_id))
+    total = db.scalar(select(func.count()).select_from(q.subquery())) or 0
+    rows = db.execute(q.order_by(ExecutionRequest.created_at).limit(limit).offset(offset)).all()
+    proposals: dict[uuid.UUID, list[schemas.AiProposalOut]] = {}
+    for a in db.scalars(select(AiSynthesis).where(AiSynthesis.request_id.in_([req.id for req, _ in rows]))):
+        m = a.response_metadata or {}
+        proposals.setdefault(a.request_id, []).append(schemas.AiProposalOut(
+            id=a.id, served=bool(m.get("served", False)), status=a.validation_status, reason=m.get("reason", ""),
+            service=m.get("service"), proto=m.get("proto"), request=m.get("request"), proposal=m.get("proposal"),
+            provider=m.get("provider"), policy_version=m.get("policy_version"), latency_ms=m.get("latency_ms"),
+            cache=bool(m.get("cache")),
+        ))
+    items = []
+    for req, obs in rows:
+        meta = (obs.result_metadata if obs else None) or {}
+        items.append(schemas.ExecutionOut(
+            request_id=req.id, operation=req.operation, command=req.input_text, command_raw=req.input_raw,
+            input_hash=req.input_hash, created_at=req.created_at, exit_code=obs.exit_code if obs else None,
+            stdout=meta.get("stdout", ""), stderr=meta.get("stderr", ""), timed_out=bool(meta.get("timed_out")),
+            truncated=bool(meta.get("truncated")), duration_ms=meta.get("duration_ms"),
+            runtime_killed=bool(meta.get("runtime_killed")), ai_proposals=proposals.get(req.id, []),
+        ))
+    services.audit(db, actor, "session.executions.read", str(session_id), limit=limit, offset=offset)
+    db.commit()
+    return schemas.Page(items=items, total=total, limit=limit, offset=offset)
+
+
+@admin.get("/sessions/{session_id}/overlay", response_model=schemas.Page[schemas.OverlayOut])
+def session_overlay(
+    session_id: uuid.UUID,
+    limit: int | None = Query(default=None, ge=1),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    """The session's filesystem changes (its overlay on top of the immutable base snapshot)."""
+    if db.get(HoneypotSession, session_id) is None:
+        raise HTTPException(404, "session not found")
+    limit, offset = _page(settings, limit, offset)
+    q = select(SessionOverlay).where(SessionOverlay.session_id == session_id)
+    total = db.scalar(select(func.count()).select_from(q.subquery())) or 0
+    rows = db.scalars(q.order_by(SessionOverlay.virtual_path).limit(limit).offset(offset)).all()
+    items = [schemas.OverlayOut(id=o.id, path=o.virtual_path, operation=o.operation, kind=o.meta.get("kind"),
+                                size=o.meta.get("size"), request_id=o.meta.get("request_id")) for o in rows]
+    return schemas.Page(items=items, total=total, limit=limit, offset=offset)
+
+
+@admin.get("/sessions/{session_id}/tree-state", response_model=schemas.TreeStateOut)
+def session_tree_state(session_id: uuid.UUID, db: Session = Depends(get_db)):
+    """The snapshot's tree as this session saw it: base nodes, visit markers (from events linked to nodes; an
+    observation, not proof of access) and overlay markers (the session's file changes, including new files)."""
+    sess = db.get(HoneypotSession, session_id)
+    if sess is None:
+        raise HTTPException(404, "session not found")
+    snap = db.get(EnvironmentSnapshot, sess.snapshot_id)
+    base = db.scalars(select(VirtualNode).where(VirtualNode.snapshot_id == sess.snapshot_id)
+                      .order_by(VirtualNode.virtual_path)).all()
+    visits: dict[uuid.UUID, int] = {}
+    basis: dict[uuid.UUID, set[str]] = {}
+    for ev in db.scalars(select(SessionEvent).where(SessionEvent.session_id == session_id,
+                                                    SessionEvent.node_id.is_not(None))):
+        visits[ev.node_id] = visits.get(ev.node_id, 0) + 1
+        basis.setdefault(ev.node_id, set()).add(
+            ev.meta.get("basis") or ("service-request" if ev.event_type.startswith("service.") else ev.event_type))
+    # latest operation per path, in command order (overlay rows carry the request that caused them)
+    order = {str(r.id): r.created_at for r in db.scalars(select(ExecutionRequest)
+                                                          .where(ExecutionRequest.session_id == session_id))}
+    changes = sorted(db.scalars(select(SessionOverlay).where(SessionOverlay.session_id == session_id)),
+                     key=lambda o: (order.get(o.meta.get("request_id")) is None, order.get(o.meta.get("request_id")) or 0))
+    overlay = {o.virtual_path: (o.operation, o.meta.get("kind")) for o in changes}
+    nodes = [schemas.TreeStateNodeOut(
+        id=n.id, parent_id=n.parent_id, path=n.virtual_path, type=n.node_type, in_base=True,
+        sensitivity=n.sensitivity_class,
+        visits=visits.get(n.id, 0), basis=sorted(basis.get(n.id, ())),
+        overlay=overlay[n.virtual_path][0] if n.virtual_path in overlay else None,
+    ) for n in base]
+    known = {n.virtual_path for n in base}
+    for path, (op, kind) in sorted(overlay.items()):
+        if path not in known:
+            nodes.append(schemas.TreeStateNodeOut(id=None, parent_id=None, path=path, sensitivity="attacker-created",
+                                                  type="directory" if kind == "d" else "file", in_base=False,
+                                                  visits=0, basis=[], overlay=op))
+    return schemas.TreeStateOut(session_id=session_id, snapshot_id=sess.snapshot_id, version=snap.version, nodes=nodes)
 
 
 # ---- twin sessions (create / exec / destroy) -----------------------------------------------
@@ -400,3 +520,4 @@ def audit_log(
 router = APIRouter(prefix="/api/v1")
 router.include_router(public)
 router.include_router(admin)
+router.include_router(live_router)  # authenticates in its first message (see app/api/live.py)

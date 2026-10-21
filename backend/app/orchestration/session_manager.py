@@ -10,6 +10,7 @@ import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -40,8 +41,12 @@ from app.runtime.driver import (
     RuntimeUnavailable,
 )
 from app.runtime.policy import ExecutionPolicy
+from app.sanitization.patterns import COMMAND_SECRET_KINDS, redact
 
 S = SessionStatus
+
+if TYPE_CHECKING:
+    from app.ai.synthesis import SynthesisWorker
 
 
 class SessionError(Exception):
@@ -98,6 +103,13 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def command_text(command: str, limit: int) -> str:
+    """What is stored of an attacker's input by default: credentials redacted, length capped. The input can carry
+    real (third-party) secrets, e.g. `mysql -pS3cret` or `curl -u admin:pw`; addresses and URLs are kept as evidence."""
+    text, _ = redact(command, COMMAND_SECRET_KINDS)
+    return text if len(text) <= limit else text[:limit] + "...[truncated]"
+
+
 class SessionManager:
     def __init__(
         self,
@@ -105,11 +117,16 @@ class SessionManager:
         db_factory: sessionmaker[Session],
         policy: ExecutionPolicy,
         base_image: str,
+        store_raw_commands: bool = False,
+        synthesizer: "SynthesisWorker | None" = None,
     ):
         self.driver = driver
         self.db_factory = db_factory
         self.policy = policy
         self.base_image = base_image
+        self.store_raw_commands = store_raw_commands
+        # optional AI synthesis (Phase 5A): gets the requests the fake services flagged `unsupported`, out of band
+        self.synthesizer = synthesizer
         self._live: dict[uuid.UUID, _Live] = {}
         self._guard = threading.Lock()
         self._nodes: dict[uuid.UUID, dict[str, uuid.UUID]] = {}  # snapshot -> {virtual path: node id}; snapshots are immutable
@@ -142,8 +159,10 @@ class SessionManager:
                 self._nodes[snapshot_id] = cached
         return cached
 
-    def _ingest_service_events(self, db: Session, sess: HoneypotSession, live: _Live) -> int:
-        """Pull what the in-twin fake services logged and store it, linked to the service's graph node."""
+    def _ingest_service_events(self, db: Session, sess: HoneypotSession, live: _Live,
+                               gaps: list[tuple[SessionEvent, dict]] | None = None) -> int:
+        """Pull what the in-twin fake services logged and store it, linked to the service's graph node. Events the
+        fake services flagged `unsupported` are also appended to `gaps` (for AI synthesis)."""
         if not live.has_services:
             return 0
         events, live.events_offset = self.driver.collect_service_events(live.runtime_id, live.spec, live.events_offset)
@@ -158,10 +177,13 @@ class SessionManager:
                 when = datetime.fromisoformat(ev["ts"]) if ev.get("ts") else None
             except (ValueError, TypeError):
                 pass
-            db.add(SessionEvent(
+            stored = SessionEvent(
                 session_id=sess.id, node_id=index.get(f"/services/{name}"), event_type=f"service.{proto}",
                 meta={k: v for k, v in ev.items() if k not in ("ts", "proto")}, occurred_at=when or _now(),
-            ))
+            )
+            db.add(stored)
+            if gaps is not None and ev.get("unsupported") is True:
+                gaps.append((stored, ev))
             count += 1
         if len(events) > 200:
             db.add(SessionEvent(session_id=sess.id, event_type="service.overflow", meta={"dropped": len(events) - 200}))
@@ -206,7 +228,8 @@ class SessionManager:
                 sid = uuid.uuid4()
                 self._live[sid] = None  # type: ignore[assignment]  # placeholder reservation
 
-            sess = HoneypotSession(id=sid, snapshot_id=snap.id, source_ip=source_ip, status=S.requested.value)
+            sess = HoneypotSession(id=sid, snapshot_id=snap.id, source_ip=source_ip, status=S.requested.value,
+                                   ai_policy_version=self.synthesizer.policy_version if self.synthesizer else None)
             db.add(sess)
             db.flush()
             try:
@@ -280,6 +303,8 @@ class SessionManager:
             self._transition(db, sess, S.destroyed, reason)
             sess.ended_at = _now()
             db.commit()
+            if self.synthesizer is not None:
+                self.synthesizer.forget_session(session_id)
             return sess
 
     # ---- execution -------------------------------------------------------------------------
@@ -311,7 +336,9 @@ class SessionManager:
                     self._transition(db, sess, S.active)
 
                 req = ExecutionRequest(
-                    session_id=session_id, operation=operation, input_hash=hashlib.sha256(raw).hexdigest()
+                    session_id=session_id, operation=operation, input_hash=hashlib.sha256(raw).hexdigest(),
+                    input_text=command_text(command, self.policy.input_limit_bytes),
+                    input_raw=command if self.store_raw_commands else None,
                 )
                 db.add(req)
                 db.flush()
@@ -378,9 +405,10 @@ class SessionManager:
                                         meta={"path": ch["path"], "operation": ch["operation"], "basis": "filesystem-diff",
                                               "request_id": str(req.id)}))
                 service_events = 0
+                gaps: list[tuple[SessionEvent, dict]] = []
                 if not result.runtime_killed and sess.status != S.failed.value:
                     try:
-                        service_events = self._ingest_service_events(db, sess, live)
+                        service_events = self._ingest_service_events(db, sess, live, gaps)
                     except Exception:  # noqa: BLE001  (missing events must never break a command)
                         service_events = 0
                 db.add(SessionEvent(
@@ -396,6 +424,8 @@ class SessionManager:
                 if sess.status != S.failed.value:
                     sess.last_activity_at = _now()
                 db.commit()
+                if self.synthesizer is not None and gaps:  # after the evidence is committed; never delays the reply
+                    self.synthesizer.submit(session_id, sess.snapshot_id, req.id, [(ev.id, raw) for ev, raw in gaps])
                 return ExecOutcome(
                     req.id, result.exit_code, result.stdout, result.stderr, result.timed_out,
                     result.truncated, result.duration_ms, result.runtime_killed, changes,
@@ -466,3 +496,5 @@ class SessionManager:
                 self.destroy_session(sid, "shutdown")
             except Exception:  # noqa: BLE001
                 pass
+        if self.synthesizer is not None:
+            self.synthesizer.shutdown()

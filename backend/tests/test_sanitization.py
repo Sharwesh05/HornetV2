@@ -31,6 +31,9 @@ ALLOWED = {"shop-prod"}
         ("Authorization: Bearer abcdef0123456789abcdef", "bearer_token"),
         ("password=hunter2pass", "kv_secret"),
         ('{"api_key": "abcd1234efgh"}', "kv_secret"),
+        ("DB_PASSWORD=hunter2pass", "kv_secret"),  # regression: '_' before the keyword hid it from \b
+        ("export API_TOKEN=abcd1234efgh", "kv_secret"),
+        ("MY-SECRET: abcd1234efgh", "kv_secret"),
         ("run --password hunter2pass now", "cli_secret"),
         ("contact ops@corp.example now", "email"),
         ("connect to 172.18.0.7 please", "ipv4"),
@@ -50,7 +53,7 @@ def test_detects_each_kind(text, kind):
         "postgres:16-alpine", "redis:7-alpine", "8080/tcp", "SKU-1001", "127.0.0.1", "0.0.0.0",
         "sha256:" + "ab12" * 16, "/var/log/postgresql/postgresql-16-main.log", "gunicorn --bind 0.0.0.0:8080 app.server:app",
         "123e4567-e89b-12d3-a456-426614174000", "python:3.12-slim", "CMD-SHELL pg_isready -U shop -d shop",
-        "password: <REDACTED:kv_secret>",
+        "password: <REDACTED:kv_secret>", "SECRET_KEY_FILE=/run/secrets/key", "TOKEN_TTL=3600",
     ],
 )
 def test_benign_strings_are_not_flagged(benign):

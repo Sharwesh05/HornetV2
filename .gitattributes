@@ -1,0 +1,9 @@
+# LF everywhere (AGENTS.md section 3); Windows-only scripts keep CRLF.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.xlsx binary
+*.png binary
+*.jpg binary
+*.pdf binary

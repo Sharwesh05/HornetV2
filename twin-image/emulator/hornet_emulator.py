@@ -8,8 +8,8 @@ One small process serves the fake services of the observed environment, each on 
 All services share one in-memory store per database, so a POST to the API is visible to `psql`, and the
 state dies with the twin (nothing is shared between sessions). Behaviour is deterministic: fixtures come
 from the build, ids are sequential, errors use real PostgreSQL / Redis messages. Anything outside the
-supported subset gets a controlled error and an `unsupported` event, which is where the AI response
-engine (Phase 5) plugs in later.
+supported subset gets a controlled error and an event flagged `unsupported`; the orchestrator asks the AI layer
+for a validated proposal for those (Phase 5A, out of band: the attacker still gets the controlled error).
 
 Every request is appended as one JSON line to an events file that only the system user can read; the
 orchestrator collects it. Attacker-supplied text is truncated and passwords are never stored.
@@ -196,6 +196,17 @@ def handle_api(store, method, path, query, body):
     return 405, {"error": "method not allowed"}
 
 
+def http_unsupported(store, method, path, status):
+    """True when the request fell outside what the emulator models (unknown route or method), as opposed to a
+    normal answer such as 404 for a missing row of a known table. These are the gaps the AI layer looks at."""
+    if status == 405:
+        return True
+    if status != 404:
+        return False
+    parts = [p for p in path.split("/") if p]
+    return not (len(parts) == 3 and parts[0] == "api" and parts[1] in store.tables)
+
+
 async def serve_http(reader, writer, svc, store, log):
     peer = writer.get_extra_info("peername") or ("?", 0)
     server = svc.get("server", "nginx/1.22.1")
@@ -232,7 +243,8 @@ async def serve_http(reader, writer, svc, store, log):
                     body = None
             status, payload = handle_api(store, method.upper(), path, query, body)
             log.emit(service=svc["name"], proto="http", action=f"{method} {target}", status=status,
-                     remote=peer[0], agent=headers.get("user-agent", ""), body=raw[:200].decode("utf-8", "replace"))
+                     remote=peer[0], agent=headers.get("user-agent", ""), body=raw[:200].decode("utf-8", "replace"),
+                     unsupported=http_unsupported(store, method.upper(), path, status))
             writer.write(http_response(status, payload, server))
             await writer.drain()
             if headers.get("connection", "").lower() == "close":

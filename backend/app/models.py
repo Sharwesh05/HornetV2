@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import DateTime as SADateTime
-from sqlalchemy import ForeignKey, Index, Integer, String, UniqueConstraint, Uuid
+from sqlalchemy import ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base, JsonType
@@ -129,7 +129,11 @@ class ExecutionRequest(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_uuid)
     session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("honeypot_session.id"), index=True)
     operation: Mapped[str] = mapped_column(String(32))
-    input_hash: Mapped[str] = mapped_column(String(128))
+    input_hash: Mapped[str] = mapped_column(String(128))  # sha256 of the raw input, for matching
+    # What the attacker typed, with credentials redacted (sanitization/patterns.COMMAND_SECRET_KINDS) and capped.
+    input_text: Mapped[str | None] = mapped_column(Text)
+    # The unredacted input. Only stored when HORNET_STORE_RAW_COMMANDS=true (off by default).
+    input_raw: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(), default=_now)
 
 

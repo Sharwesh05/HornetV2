@@ -57,6 +57,14 @@ class FakeDriver:
             rt.setdefault("events", []).append({"ts": "2026-10-13T04:30:00.000+00:00", "service": command[4:], "proto": "http",
                                                 "action": "GET /api/customers", "status": 200, "remote": "127.0.0.1"})
             return ExecResult(0, "{}\n", "", False, False, 4)
+        if command.startswith("gap "):  # a fake-service request the emulator cannot answer: "gap <proto> <text>"
+            _, proto, text = command.split(" ", 2)
+            ev = {"ts": "2026-10-19T04:30:00.000+00:00", "service": {"postgres": "db", "redis": "cache"}.get(proto, "web"),
+                  "proto": proto, "status": "error" if proto != "http" else 404, "remote": "127.0.0.1",
+                  "unsupported": True}
+            ev.update({"action": "sql", "sql": text, "code": "42601"} if proto == "postgres" else {"action": text})
+            rt.setdefault("events", []).append(ev)
+            return ExecResult(1, "", "ERROR:  syntax error\n", False, False, 4)
         if command == "flood":
             return ExecResult(0, "x" * policy.output_limit_bytes, "", False, True, 5)
         return ExecResult(127, "", f"{command}: command not found\n", False, False, 1)
@@ -120,3 +128,36 @@ class FakeDriver:
 
     def list_managed(self):
         return list(self.runtimes)
+
+
+class FakeProvider:
+    """Deterministic, offline stand-in for a model (AGENTS.md: fakes over mocks). Configure what it answers:
+
+    * answer: a dict, or a callable (context, output_schema) -> object, returned as the model's JSON
+    * error: an exception instance to raise instead (a provider failure)
+    * delay: seconds to sleep before answering (for timeouts)
+
+    Every call is recorded in `calls` (system policy, context, schema) so tests can prove what the model was shown.
+    """
+
+    name = "fake"
+    version = "1"
+    is_model = True
+
+    def __init__(self, answer=None, error: Exception | None = None, delay: float = 0.0):
+        import threading
+
+        self.answer, self.error, self.delay = answer, error, delay
+        self.calls: list[dict] = []
+        self._lock = threading.Lock()
+
+    def generate_structured(self, *, system_policy: str, context: dict, output_schema: dict):
+        import time
+
+        with self._lock:
+            self.calls.append({"system_policy": system_policy, "context": context, "output_schema": output_schema})
+        if self.delay:
+            time.sleep(self.delay)
+        if self.error is not None:
+            raise self.error
+        return self.answer(context, output_schema) if callable(self.answer) else self.answer

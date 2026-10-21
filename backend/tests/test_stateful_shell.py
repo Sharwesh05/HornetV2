@@ -144,6 +144,7 @@ def test_evidence_records_what_the_attacker_typed_not_the_wrapper(env, session_f
         req = v.scalars(select(ExecutionRequest)).one()
         import hashlib
         assert req.input_hash == hashlib.sha256(b"echo secret-typed-command").hexdigest() and req.operation == "interactive_input"
+        assert req.input_text == "echo secret-typed-command"  # what was typed, not the wrapper
         stdout = v.scalars(select(ExecutionObservation)).one().result_metadata["stdout"]
         assert stdout == "secret-typed-command\n" and "HORNET" not in stdout and "\x00" not in stdout
 

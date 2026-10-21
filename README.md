@@ -265,15 +265,40 @@ Two separate surfaces with different authentication and network policy: the **ad
 
 ## Dashboard
 
-React + TypeScript + Tailwind CSS.
+React + TypeScript + Tailwind CSS in `frontend/` (Phase 6). For investigators only: it talks to the admin API with
+the admin key, which it keeps in the tab's memory (never in browser storage); a reload logs out.
 
-- **Overview:** active sessions, event rates, runtime health, alerts, environment version.
-- **Environment explorer:** browse the static filesystem and service graph; select a node to see its metadata and activity.
-- **Session explorer:** ordered interactions, outcomes and state changes.
-- **Execution inspection:** raw stdout/stderr, exit code, truncation, timing, with AI-generated material labeled separately.
-- **Environment management:** build, validate, compare and publish snapshots.
+```bash
+python -m scripts.dev ui-setup     # once: npm ci (exact versions from frontend/package-lock.json)
+python -m scripts.dev api          # the admin API (terminal 1)
+python -m scripts.dev ui           # http://127.0.0.1:5173 (terminal 2); proxies /api to the API, loopback only
+python -m scripts.dev ui-check     # lint, type check, tests, production build
+```
 
-The tree shows three visually distinct node states: **base** (in the published snapshot), **visited** (has an observed interaction) and **session overlay** (created or changed in a session). A visited marker is an observation, not proof of compromise.
+Written for people who are not security specialists (Phase 6.5): plain-English wording throughout, a glossary
+with hover/focus tooltips and a Help page, light and dark themes (follows the computer's setting, with a toggle),
+self-hosted fonts (no outside requests), WCAG AA contrast (checked by a test that reads the colour tokens).
+
+- **Home:** one sentence on what is happening now, the *hive* (one hexagon per recent visit: honey = live,
+  red = stopped by a safety limit) and the live activity in plain English ("Logged in as root", "Queried the fake
+  database"), typically within a second.
+- **Attacker sessions:** every visit with a plain status ("Ended: the visitor disconnected"), duration, command and
+  AI-suggestion counts; search and filters.
+- **A visit:** a **"What happened"** summary built from the evidence (no AI): commands, files holding the decoy's
+  fake passwords that were touched, files created, fake services used, AI suggestions kept, limits hit, why it
+  ended. Then a **replay** (play, back, next) of the terminal as the visitor saw it, with two separate panels for
+  the selected command: **What really happened** (evidence) and **AI suggestion** (never shown to the visitor).
+  Further tabs: files touched, the environment map (visited / new or changed / holds fake passwords), all events.
+- **Fake environments:** each version as a card with its status in words and one next step (Check it, Publish),
+  and a build form that explains what building does and shows elapsed time.
+
+**Attacker text is only ever rendered as text.** There is no HTML injection anywhere (enforced by ESLint rules), and
+terminal escapes, control characters and bidirectional-override characters are shown visibly rather than
+interpreted. XSS tests render hostile payloads through every component and fail if any element or handler appears.
+Only the origins in `HORNET_DASHBOARD_ORIGINS` may call the API from a browser or open the live feed.
+
+`python -m scripts.seed_demo_session` plays a fixed attacker session through the real gateway and exports it
+(`frontend/src/test/fixtures/demo-session.json`); the dashboard's replay tests run on that recording.
 
 ---
 
@@ -464,7 +489,7 @@ python -m venv .venv
 .venv/Scripts/python -m pip install -e ".[dev]"      # Windows; use .venv/bin/python on Linux/macOS
 ```
 
-Create a `.env` from `.env.example` and set `HORNET_ADMIN_API_KEY` (16+ chars; placeholders are rejected at startup).
+Create a `.env` from `.env.example` and set `HORNET_ADMIN_API_KEY` (16+ chars; placeholders are rejected at startup). Keep it in the repo root: it is found from any working directory, and a `.env` in the current directory overrides it. (On Linux/macOS use `.venv/bin/python` instead of `.venv/Scripts/python` below. The default SQLite file `hornet_dev.db` lives in the repo root, for both the API and alembic.)
 
 ```bash
 cd backend
@@ -472,7 +497,7 @@ cd backend
 ../.venv/Scripts/python -m uvicorn app.main:app --port 8000
 ```
 
-API docs at http://127.0.0.1:8000/docs. Send the key as `X-API-Key`. Tests and lint:
+API docs at http://127.0.0.1:8000/docs (click **Authorize** and paste the key). With curl send the key as `X-API-Key`. Tests and lint:
 
 ```bash
 .venv/Scripts/python -m pytest
@@ -641,19 +666,22 @@ twin (no network, loopback only) -> fake HTTP / PostgreSQL / Redis on 127.0.1.N,
   `ssh -p 2222 root@127.0.0.1`. It uses a stable ed25519 host key (created on first start under `data/gateway/`).
 - **Login:** any username; a password is accepted on the Nth attempt of a connection (`HORNET_GATEWAY_ACCEPT_AFTER`) or at once if
   it is in `HORNET_GATEWAY_WEAK_PASSWORDS`. Public keys are refused but their fingerprints are logged. Every attempt is stored
-  as a `GatewayEvent` (visible at `GET /api/v1/gateway/events`); `HORNET_GATEWAY_LOG_PASSWORDS=false` keeps only length + hash.
+  as a `GatewayEvent` (visible at `GET /api/v1/gateway/events`). By default only the password's length and a short hash
+  are kept; `HORNET_GATEWAY_LOG_PASSWORDS=true` stores the attempted text (see *Command storage* below).
 - **Sessions:** a connection gets a fresh twin when its first shell/exec channel opens and loses it when it closes. Reconnecting
   gives a clean twin; two connections never share one. Idle connections are logged out; a fork bomb or other limit violation
   ends the connection and the first cause is kept as the session's end reason.
 - **Refused and logged:** SFTP/SCP and every other subsystem, direct/remote/unix port forwarding, agent/X11 forwarding.
   Per-address connection limit and twin capacity limit are enforced without breaking other connections.
 - **Persistent shell, honestly:** every command still runs as its own process (so each is separate evidence), wrapped so the next
-  one starts in the same directory with the same exported variables. The evidence records exactly what was typed.
+  one starts in the same directory with the same exported variables. The evidence records what was typed (not the
+  wrapper), with credentials redacted; see *Command storage* below.
 - **Running services:** services of the observed server get a fake inside the twin (`twin-image/emulator/hornet_emulator.py`,
   standard library only). `curl`, the real `psql` (including `\dt`) and `redis-cli` work against them, with the same fake
   credentials that are planted in `~/.pgpass`, `.env`, `redis.conf`. They share one in-memory store, so a row created through the
   HTTP API appears in SQL, and the state dies with the twin. Errors use real PostgreSQL / Redis codes and messages. Anything
-  outside the supported subset gets a controlled error and an `unsupported` event: that is the hook for the AI layer (Phase 5).
+  outside the supported subset gets a controlled error and an `unsupported` event, which the AI layer (Phase 5A) turns into
+  an out-of-band proposal; see *AI synthesis* below.
 - **Events linked to the graph:** commands that name a path in the file tree become `resource_access` events pointing at that node
   (labelled `basis: command-argument`: an observation, not proof of a read), file changes become `fs_change` events, and fake
   service requests become `service.http|postgres|redis` events linked to the service node. Passwords are never stored by the
@@ -677,6 +705,42 @@ to the attacker. The whole flow was also run with a real OpenSSH 10.3 client.
   reconnects will not find yesterday's files.
 - Hardened Docker on Windows shares the host VM kernel. Do not expose the gateway to the internet from a development machine.
 
+### AI synthesis (Phase 5A)
+
+When a fake service cannot answer a request (unknown SQL, `CLIENT LIST`, an unknown API route), the attacker gets
+its controlled error, exactly as before. Afterwards, off the attacker's path, Hornet asks the model what a real
+server would plausibly have answered, validates the answer in code and stores it in `ai_synthesis`, labelled
+"AI proposal, not served to attacker". It never changes the recorded evidence.
+
+```bash
+HORNET_AI_SYNTH_ENABLED=true          # default false: nothing changes
+HORNET_AI_PROVIDER=nim                # with `template` every gap is recorded as "fallback" (no model)
+HORNET_NIM_SYNTH_MODEL=nvidia/nemotron-3-super-120b-a12b   # measured: ~1 s median (docs/results/synthesis_latency.md)
+```
+
+The model sees table and column names and the request (credentials redacted, marked untrusted), never data or
+secrets. A proposal is rejected if it invents tables, columns or API resources, claims a write succeeded, or
+contains secret-like strings, real email domains or real IP addresses. Statuses: `accepted`, `rejected`, `timeout`,
+`fallback`. Results appear under `ai_proposals` in `GET /api/v1/sessions/{id}/executions`.
+
+### Command storage
+
+What an attacker types is research data, but it can contain real credentials (theirs, or a third party's they are
+reusing). So it is stored with safeguards:
+
+- **Stored by default:** `execution_request.input_text`, the command with credentials redacted (`password=...`,
+  `DB_PASSWORD=...`, `--password x`, `-u user:pass`, URL credentials, bearer tokens, JWTs, cloud/API keys, private keys).
+  Addresses, URLs, emails and encoded payloads are kept: they are the evidence. Capped at the input limit (8 KB).
+  `input_hash` (SHA-256 of the raw input) is kept for matching.
+- **Raw text:** only with `HORNET_STORE_RAW_COMMANDS=true` (`input_raw`; off by default, warned about in prod).
+- **Login passwords:** length and a short hash by default; `HORNET_GATEWAY_LOG_PASSWORDS=true` stores the text.
+- **Access:** admin API only (`X-API-Key`); never in `/health`, analytics or application logs.
+- **Retention:** `HORNET_RETENTION_DAYS` (default 30). The purge (`app/retention.py`) deletes ended sessions older
+  than that with everything recorded for them, plus old login attempts that never became a session. It is the only
+  path allowed to delete evidence, and it writes a `retention.purge` audit event. Live sessions are never purged.
+- **Known limit:** stdout and stderr are stored as-is, as execution evidence. A command that echoes a secret back
+  (e.g. `echo $PASSWORD`) leaves it in the output.
+
 ## Status
 
 - **Phase 1 (management foundation): done.**
@@ -689,5 +753,10 @@ to the attacker. The whole flow was also run with a real OpenSSH 10.3 client.
   build for both demo servers.
 - **Phase 4 (gateway, persistent shell, running services): done.** Verified with the test suite (including real-Docker
   tests through the SSH gateway for both demo servers) and by hand with a real OpenSSH client.
-- **Next:** Phase 5, AI synthesis: the model fills the gaps the emulators flag as `unsupported`, validated in code. See
-  [AGENTS.md](AGENTS.md).
+- **Phase 5A (AI synthesis, out of band): done.** Requests the fake services flag `unsupported` get an AI proposal,
+  validated in code and stored apart from the evidence. It is not sent to the attacker (live serving, 5B, is
+  optional and not built). See `architecture.md` section 10.
+- **Phase 6 (dashboard): done.** Live feed, session replay, raw-vs-AI inspector, environment tree, environment
+  management; XSS-safe rendering tested. **Phase 6.5:** redesigned for non-technical users (plain English,
+  "What happened" summaries, glossary, light/dark). See *Dashboard* above.
+- **Next:** Phase 7, demo security and essential evaluation.

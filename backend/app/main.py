@@ -3,6 +3,7 @@ import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 import app.immutability  # noqa: F401  (registers the session guards)
 from app.api.v1 import router
@@ -45,8 +46,11 @@ async def lifespan(application: FastAPI):
 
 
 def create_app() -> FastAPI:
-    get_settings()  # fail fast on unsafe configuration
+    settings = get_settings()  # fail fast on unsafe configuration
     application = FastAPI(title="Hornet admin API", version="0.2.0", lifespan=lifespan)
+    # only the dashboard's own origins; credentials are an explicit X-API-Key header, never cookies
+    application.add_middleware(CORSMiddleware, allow_origins=settings.dashboard_origin_list(), allow_credentials=False,
+                               allow_methods=["GET", "POST", "DELETE"], allow_headers=["X-API-Key", "Content-Type"])
     application.include_router(router)
     return application
 

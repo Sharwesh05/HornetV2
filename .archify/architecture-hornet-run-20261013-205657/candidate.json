@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Hornet v2: Run the Twin",
+    "output": ".archify/architecture-hornet-run-20261013-205657/hornet-run.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "attacker",
+      "type": "external",
+      "label": "Attacker",
+      "sublabel": "untrusted ssh client",
+      "pos": [
+        40,
+        60
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "gateway",
+      "type": "security",
+      "label": "SSH gateway",
+      "sublabel": "login policy, per-IP cap",
+      "pos": [
+        300,
+        60
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "sessions",
+      "type": "backend",
+      "label": "Session manager",
+      "sublabel": "state machine, limits, reaper",
+      "pos": [
+        560,
+        60
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "driver",
+      "type": "backend",
+      "label": "Hardened driver",
+      "sublabel": "RuntimeDriver (Docker)",
+      "pos": [
+        820,
+        60
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "twin",
+      "type": "backend",
+      "label": "Twin container",
+      "sublabel": "commands run for real",
+      "pos": [
+        1140,
+        60
+      ],
+      "size": [
+        150,
+        60
+      ],
+      "tag": "no network"
+    },
+    {
+      "id": "emulator",
+      "type": "backend",
+      "label": "Fake services",
+      "sublabel": "HTTP, PostgreSQL, Redis",
+      "pos": [
+        1140,
+        230
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Evidence database",
+      "sublabel": "raw, events, audit apart",
+      "pos": [
+        430,
+        230
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Admin API",
+      "sublabel": "read-only views",
+      "pos": [
+        430,
+        380
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "operator",
+      "type": "external",
+      "label": "Operator",
+      "sublabel": "X-API-Key",
+      "pos": [
+        690,
+        380
+      ],
+      "size": [
+        150,
+        60
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Execution plane",
+      "wraps": [
+        "gateway",
+        "sessions",
+        "driver"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "Disposable twin: one per connection",
+      "wraps": [
+        "twin",
+        "emulator"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Management plane",
+      "wraps": [
+        "db",
+        "api",
+        "operator"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "attacker-to-gateway",
+      "from": "attacker",
+      "to": "gateway",
+      "label": "ssh",
+      "variant": "emphasis"
+    },
+    {
+      "id": "gateway-to-sessions",
+      "from": "gateway",
+      "to": "sessions",
+      "label": "create, execute",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sessions-to-driver",
+      "from": "sessions",
+      "to": "driver",
+      "label": "exec",
+      "variant": "emphasis"
+    },
+    {
+      "id": "driver-to-twin",
+      "from": "driver",
+      "to": "twin",
+      "label": "docker run",
+      "variant": "emphasis"
+    },
+    {
+      "id": "twin-to-emulator",
+      "from": "twin",
+      "to": "emulator",
+      "label": "serves",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "sessions-to-db",
+      "from": "sessions",
+      "to": "db",
+      "label": "evidence",
+      "fromSide": "bottom",
+      "toSide": "right"
+    },
+    {
+      "id": "gateway-to-db",
+      "from": "gateway",
+      "to": "db",
+      "label": "gateway events",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "api-to-db",
+      "from": "api",
+      "to": "db",
+      "label": "reads events",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "operator-to-api",
+      "from": "operator",
+      "to": "api",
+      "label": "query",
+      "fromSide": "left",
+      "toSide": "right"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Containment",
+      "items": [
+        "No network, read-only root, caps dropped",
+        "Time, output, memory, process limits from server policy"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Planned, not built",
+      "items": [
+        "Runtime AI gap-filler",
+        "Dashboard and live feed"
+      ]
+    }
+  ]
+}

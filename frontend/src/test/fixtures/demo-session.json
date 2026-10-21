@@ -1,0 +1,1542 @@
+{
+ "events": [
+  {
+   "event_type": "session.provisioning",
+   "id": "dbc094ff-9d63-441f-9697-d127ab74b770",
+   "metadata": {
+    "reason": null
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:51.906965",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "session.ready",
+   "id": "67d206a0-6595-447b-abcc-9af6063ae55a",
+   "metadata": {
+    "reason": null
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:52.355538",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "session.services",
+   "id": "5c7410f1-b763-440a-8c9b-7772ccab77e9",
+   "metadata": {
+    "services": [
+     "cache",
+     "db",
+     "web"
+    ],
+    "status": "started"
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:52.355541",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "session.active",
+   "id": "1e62a45e-950b-49bd-bd59-361d1132d98f",
+   "metadata": {
+    "reason": null
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:52.357634",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "resource_access",
+   "id": "848251be-5f14-4e6e-9453-6f22afce49da",
+   "metadata": {
+    "basis": "command-argument",
+    "path": "/home/user/.pgpass",
+    "request_id": "2fc4c9f8-77cc-4602-87a7-6d2000d74d19"
+   },
+   "node_id": "24130506-0f7f-48fb-a2e6-0f82a02c304d",
+   "occurred_at": "2026-10-20T15:34:52.458959",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "command_executed",
+   "id": "3aaf82c3-4a1f-476b-b7f7-bbb6d0f64239",
+   "metadata": {
+    "cwd": "/home/user",
+    "exit_code": 0,
+    "fs_changes": 0,
+    "operation": "exec_command",
+    "request_id": "2fc4c9f8-77cc-4602-87a7-6d2000d74d19",
+    "runtime_killed": false,
+    "service_events": 0,
+    "timed_out": false,
+    "truncated": false
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:52.458962",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "command_executed",
+   "id": "53306b2b-937f-475c-b7d5-54d7465aa7a9",
+   "metadata": {
+    "cwd": "/home/user",
+    "exit_code": 0,
+    "fs_changes": 0,
+    "operation": "exec_command",
+    "request_id": "343e3661-bc2d-4405-aa46-94caa9901c56",
+    "runtime_killed": false,
+    "service_events": 0,
+    "timed_out": false,
+    "truncated": false
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:52.556456",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "command_executed",
+   "id": "4f0357e1-d0cc-414b-b992-e23edcde9c45",
+   "metadata": {
+    "cwd": "/home/user",
+    "exit_code": 0,
+    "fs_changes": 0,
+    "operation": "exec_command",
+    "request_id": "dee17b71-7c63-48d7-981e-70d9301760d3",
+    "runtime_killed": false,
+    "service_events": 0,
+    "timed_out": false,
+    "truncated": false
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:52.669369",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "command_executed",
+   "id": "b62e8961-52a6-4d3d-9c97-dcd3144609ef",
+   "metadata": {
+    "cwd": "/home/user",
+    "exit_code": 0,
+    "fs_changes": 0,
+    "operation": "exec_command",
+    "request_id": "f1071ef4-5fde-4e64-a008-dac819a9cfb3",
+    "runtime_killed": false,
+    "service_events": 0,
+    "timed_out": false,
+    "truncated": false
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:52.788744",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "resource_access",
+   "id": "b9d09a12-96eb-4b2f-b469-333709e4e1d4",
+   "metadata": {
+    "basis": "command-argument",
+    "path": "/home/user/.pgpass",
+    "request_id": "7e9694ea-4238-4dea-a44b-32b2d944af4c"
+   },
+   "node_id": "24130506-0f7f-48fb-a2e6-0f82a02c304d",
+   "occurred_at": "2026-10-20T15:34:52.889861",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "command_executed",
+   "id": "f8736c0c-c999-4714-8060-a00729cae156",
+   "metadata": {
+    "cwd": "/home/user",
+    "exit_code": 0,
+    "fs_changes": 0,
+    "operation": "exec_command",
+    "request_id": "7e9694ea-4238-4dea-a44b-32b2d944af4c",
+    "runtime_killed": false,
+    "service_events": 0,
+    "timed_out": false,
+    "truncated": false
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:52.889863",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "service.postgres",
+   "id": "23bff715-8fd9-4bcf-9d40-8507dafe356a",
+   "metadata": {
+    "action": "auth",
+    "app": "psql",
+    "database": "shop",
+    "remote": "127.0.0.1",
+    "service": "db",
+    "status": "ok",
+    "user": "shop"
+   },
+   "node_id": "6ebade72-dbe6-490d-8a59-1b216f6d2c47",
+   "occurred_at": "2026-10-20T15:34:52.947000",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "service.postgres",
+   "id": "9787d6dd-258d-4877-91c9-dff017404bec",
+   "metadata": {
+    "action": "sql",
+    "remote": "127.0.0.1",
+    "service": "db",
+    "sql": "SELECT n.nspname as \"Schema\",\n  c.relname as \"Name\",\n  CASE c.relkind WHEN 'r' THEN 'table' WHEN 'v' THEN 'view' WHEN 'm' THEN 'materialized view' WHEN 'i' THEN 'index' WHEN 'S' THEN 'sequence' WHEN 't' THEN 'TOAST table' WHEN 'f' THEN 'foreign table' WHEN 'p' THEN 'partitioned table' WHEN 'I' THEN 'partitioned index' END as \"Type\",\n  pg_catalog.pg_get_userbyid(c.relowner) as \"Owner\"\nFROM pg_catal...",
+    "status": "ok",
+    "user": "shop"
+   },
+   "node_id": "6ebade72-dbe6-490d-8a59-1b216f6d2c47",
+   "occurred_at": "2026-10-20T15:34:52.948000",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "command_executed",
+   "id": "240b2c29-2896-4d4b-b708-9d47cf00e524",
+   "metadata": {
+    "cwd": "/home/user",
+    "exit_code": 0,
+    "fs_changes": 0,
+    "operation": "exec_command",
+    "request_id": "f1919cbb-84de-4225-8908-d06769851a8e",
+    "runtime_killed": false,
+    "service_events": 2,
+    "timed_out": false,
+    "truncated": false
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:53.046300",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "service.postgres",
+   "id": "2a6b3dd9-1017-44e4-838f-08b792925c4a",
+   "metadata": {
+    "action": "auth",
+    "app": "psql",
+    "database": "shop",
+    "remote": "127.0.0.1",
+    "service": "db",
+    "status": "ok",
+    "user": "shop"
+   },
+   "node_id": "6ebade72-dbe6-490d-8a59-1b216f6d2c47",
+   "occurred_at": "2026-10-20T15:34:53.087000",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "service.postgres",
+   "id": "4805d8d9-e0d9-444b-a9b8-695424ceac50",
+   "metadata": {
+    "action": "sql",
+    "code": "42601",
+    "remote": "127.0.0.1",
+    "service": "db",
+    "sql": "explain select 1",
+    "status": "error",
+    "unsupported": true,
+    "user": "shop"
+   },
+   "node_id": "6ebade72-dbe6-490d-8a59-1b216f6d2c47",
+   "occurred_at": "2026-10-20T15:34:53.087000",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "command_executed",
+   "id": "2f8f39cd-0659-43d1-b675-fa8f34a725a0",
+   "metadata": {
+    "cwd": "/home/user",
+    "exit_code": 1,
+    "fs_changes": 0,
+    "operation": "exec_command",
+    "request_id": "d8cd8131-45d6-455f-8ade-d9dda7fa82f8",
+    "runtime_killed": false,
+    "service_events": 2,
+    "timed_out": false,
+    "truncated": false
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:53.185794",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "service.http",
+   "id": "5ae6df88-70bc-431f-a306-aab398fb517f",
+   "metadata": {
+    "action": "GET /health",
+    "agent": "curl/7.88.1",
+    "body": "",
+    "remote": "127.0.0.1",
+    "service": "web",
+    "status": 200,
+    "unsupported": false
+   },
+   "node_id": "9a45ccd0-8aca-4422-ab09-89ed56b6048f",
+   "occurred_at": "2026-10-20T15:34:53.235000",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "command_executed",
+   "id": "98434cb8-c235-45f2-b466-fea02c1c409d",
+   "metadata": {
+    "cwd": "/home/user",
+    "exit_code": 0,
+    "fs_changes": 0,
+    "operation": "exec_command",
+    "request_id": "d3e9abaf-bbe4-4400-99c9-58f0c06df44d",
+    "runtime_killed": false,
+    "service_events": 1,
+    "timed_out": false,
+    "truncated": false
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:53.292939",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "service.http",
+   "id": "55e421c9-64a5-4848-b6df-660285df6967",
+   "metadata": {
+    "action": "GET /admin/login",
+    "agent": "curl/7.88.1",
+    "body": "",
+    "remote": "127.0.0.1",
+    "service": "web",
+    "status": 404,
+    "unsupported": true
+   },
+   "node_id": "9a45ccd0-8aca-4422-ab09-89ed56b6048f",
+   "occurred_at": "2026-10-20T15:34:53.335000",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "command_executed",
+   "id": "36b5d713-d0a5-4632-9c75-b77c0e56ec96",
+   "metadata": {
+    "cwd": "/home/user",
+    "exit_code": 0,
+    "fs_changes": 0,
+    "operation": "exec_command",
+    "request_id": "f8e4f199-2da5-4c13-89c7-28477602f1e7",
+    "runtime_killed": false,
+    "service_events": 1,
+    "timed_out": false,
+    "truncated": false
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:53.431531",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "command_executed",
+   "id": "d0682578-c4f5-4535-8607-13849c629afd",
+   "metadata": {
+    "cwd": "/home/user",
+    "exit_code": 0,
+    "fs_changes": 0,
+    "operation": "exec_command",
+    "request_id": "ec291ebb-58c2-478a-9a45-36ec1576cb78",
+    "runtime_killed": false,
+    "service_events": 0,
+    "timed_out": false,
+    "truncated": false
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:53.531180",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "fs_change",
+   "id": "eb965854-100b-4b94-a207-9caeb42d5bdb",
+   "metadata": {
+    "basis": "filesystem-diff",
+    "operation": "created",
+    "path": "/tmp/note.html",
+    "request_id": "6d6da51f-968a-4bdb-a89a-c1f2671e8747"
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:53.636828",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "command_executed",
+   "id": "2ba67dab-b8f5-45dd-88aa-14efb3b59aac",
+   "metadata": {
+    "cwd": "/home/user",
+    "exit_code": 0,
+    "fs_changes": 1,
+    "operation": "exec_command",
+    "request_id": "6d6da51f-968a-4bdb-a89a-c1f2671e8747",
+    "runtime_killed": false,
+    "service_events": 0,
+    "timed_out": false,
+    "truncated": false
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:53.636831",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "command_executed",
+   "id": "332f3ba8-7032-40a1-ae97-448f0bcaf279",
+   "metadata": {
+    "cwd": "/home/user",
+    "exit_code": 0,
+    "fs_changes": 0,
+    "operation": "exec_command",
+    "request_id": "aae0c6bf-ef4c-4e27-9867-7c693cfe02f0",
+    "runtime_killed": false,
+    "service_events": 0,
+    "timed_out": false,
+    "truncated": false
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:53.739467",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "command_executed",
+   "id": "4ba88815-3b6e-4872-b563-9f19010a90a4",
+   "metadata": {
+    "cwd": "/home/user",
+    "exit_code": 0,
+    "fs_changes": 0,
+    "operation": "exec_command",
+    "request_id": "3b0341c1-5e36-4dc7-8b16-4ca1b42be54d",
+    "runtime_killed": false,
+    "service_events": 0,
+    "timed_out": false,
+    "truncated": false
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:53.848449",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "session.quiescing",
+   "id": "98cf85c4-d9c4-408a-80c0-7b4b012037b9",
+   "metadata": {
+    "reason": "disconnect"
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:53.936931",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  },
+  {
+   "event_type": "session.destroyed",
+   "id": "c0d46389-9094-49c5-ba8c-cccbc9edc4d7",
+   "metadata": {
+    "reason": "disconnect"
+   },
+   "node_id": null,
+   "occurred_at": "2026-10-20T15:34:53.936933",
+   "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c"
+  }
+ ],
+ "executions": [
+  {
+   "ai_proposals": [],
+   "command": "cat ~/.pgpass 2>/dev/null",
+   "command_raw": null,
+   "created_at": "2026-10-20T15:34:52.357432",
+   "duration_ms": 25,
+   "exit_code": 0,
+   "input_hash": "5593ef495b85984cf0edf5b84c3d42d87b170b59941001077e29da96920b2ee5",
+   "operation": "exec_command",
+   "request_id": "2fc4c9f8-77cc-4602-87a7-6d2000d74d19",
+   "runtime_killed": false,
+   "source": "execution",
+   "stderr": "",
+   "stdout": "db:5432:shop:shop:bf0BRx7lqASFLoboYAd2\n",
+   "timed_out": false,
+   "truncated": false
+  },
+  {
+   "ai_proposals": [],
+   "command": "id",
+   "command_raw": null,
+   "created_at": "2026-10-20T15:34:52.461191",
+   "duration_ms": 26,
+   "exit_code": 0,
+   "input_hash": "a56145270ce6b3bebd1dd012b73948677dd618d496488bc608a3cb43ce3547dd",
+   "operation": "exec_command",
+   "request_id": "343e3661-bc2d-4405-aa46-94caa9901c56",
+   "runtime_killed": false,
+   "source": "execution",
+   "stderr": "",
+   "stdout": "uid=1000(user) gid=1000(user) groups=1000(user)\n",
+   "timed_out": false,
+   "truncated": false
+  },
+  {
+   "ai_proposals": [],
+   "command": "hostname",
+   "command_raw": null,
+   "created_at": "2026-10-20T15:34:52.558574",
+   "duration_ms": 26,
+   "exit_code": 0,
+   "input_hash": "7063dece7cccf374d9fa1ee30ff23300fa42477e064e69be7bb6d01c0cfff682",
+   "operation": "exec_command",
+   "request_id": "dee17b71-7c63-48d7-981e-70d9301760d3",
+   "runtime_killed": false,
+   "source": "execution",
+   "stderr": "",
+   "stdout": "srv-3d3c66\n",
+   "timed_out": false,
+   "truncated": false
+  },
+  {
+   "ai_proposals": [],
+   "command": "ls -la",
+   "command_raw": null,
+   "created_at": "2026-10-20T15:34:52.671413",
+   "duration_ms": 62,
+   "exit_code": 0,
+   "input_hash": "1de700c29687cae34561545f50d3c8b3d9afe88e04cc11069f8a6dc6e4ce9464",
+   "operation": "exec_command",
+   "request_id": "f1071ef4-5fde-4e64-a008-dac819a9cfb3",
+   "runtime_killed": false,
+   "source": "execution",
+   "stderr": "",
+   "stdout": "total 4\ndrwxr-xr-x 2 user user 60 Oct 20 15:34 .\ndrwxr-xr-x 1 root root  8 Oct 14 05:34 ..\n-rw------- 1 user user 39 Oct 20 15:34 .pgpass\n",
+   "timed_out": false,
+   "truncated": false
+  },
+  {
+   "ai_proposals": [],
+   "command": "cat ~/.pgpass",
+   "command_raw": null,
+   "created_at": "2026-10-20T15:34:52.790937",
+   "duration_ms": 42,
+   "exit_code": 0,
+   "input_hash": "0f0bb6658afa6b5451bc6bf800951dbe33065c8f8cb66bc398e837162a0b5a11",
+   "operation": "exec_command",
+   "request_id": "7e9694ea-4238-4dea-a44b-32b2d944af4c",
+   "runtime_killed": false,
+   "source": "execution",
+   "stderr": "",
+   "stdout": "db:5432:shop:shop:bf0BRx7lqASFLoboYAd2\n",
+   "timed_out": false,
+   "truncated": false
+  },
+  {
+   "ai_proposals": [],
+   "command": "psql -h db -p 5432 -U shop shop -c '\\dt'",
+   "command_raw": null,
+   "created_at": "2026-10-20T15:34:52.891990",
+   "duration_ms": 58,
+   "exit_code": 0,
+   "input_hash": "faec2bf262edc6c775746fa80128b6fd8007f6c920eb42fb291f5b70bc7520b7",
+   "operation": "exec_command",
+   "request_id": "f1919cbb-84de-4225-8908-d06769851a8e",
+   "runtime_killed": false,
+   "source": "execution",
+   "stderr": "",
+   "stdout": "            List of relations\n Schema |      Name       | Type  | Owner \n--------+-----------------+-------+-------\n public | customers       | table | shop\n public | products        | table | shop\n public | customer_orders | table | shop\n public | order_lines     | table | shop\n(4 rows)\n\n",
+   "timed_out": false,
+   "truncated": false
+  },
+  {
+   "ai_proposals": [
+    {
+     "cache": false,
+     "id": "d498cf54-ff4a-4486-ac9c-e935705bfb6e",
+     "latency_ms": 2489,
+     "policy_version": "phase5a-synth-v1",
+     "proposal": {
+      "code": "42P01",
+      "kind": "error",
+      "message": "relation \"pg_stat_activity\" does not exist"
+     },
+     "proto": "postgres",
+     "provider": "nim:nvidia/nemotron-3.5-super-vl-120b-a12b",
+     "reason": "",
+     "request": "explain select 1",
+     "served": false,
+     "service": "db",
+     "source": "ai",
+     "status": "accepted"
+    }
+   ],
+   "command": "psql -h db -p 5432 -U shop shop -c 'explain select 1'",
+   "command_raw": null,
+   "created_at": "2026-10-20T15:34:53.048440",
+   "duration_ms": 82,
+   "exit_code": 1,
+   "input_hash": "1e7ec3a4ff362cf960e1f2b84dac54cbc46cd17ed723e53edaadfa755d982095",
+   "operation": "exec_command",
+   "request_id": "d8cd8131-45d6-455f-8ade-d9dda7fa82f8",
+   "runtime_killed": false,
+   "source": "execution",
+   "stderr": "ERROR:  syntax error at or near \"explain\"\n",
+   "stdout": "",
+   "timed_out": false,
+   "truncated": false
+  },
+  {
+   "ai_proposals": [],
+   "command": "curl -s -m 5 http://web:8080/health",
+   "command_raw": null,
+   "created_at": "2026-10-20T15:34:53.188874",
+   "duration_ms": 49,
+   "exit_code": 0,
+   "input_hash": "21b27658a0539bbccc942ccc39a31ee8a09314b259e25cd349afa6de847a6019",
+   "operation": "exec_command",
+   "request_id": "d3e9abaf-bbe4-4400-99c9-58f0c06df44d",
+   "runtime_killed": false,
+   "source": "execution",
+   "stderr": "",
+   "stdout": "{\"status\": \"ok\"}",
+   "timed_out": false,
+   "truncated": false
+  },
+  {
+   "ai_proposals": [
+    {
+     "cache": false,
+     "id": "8d044c27-4d12-4ce8-aa79-320c5e19114e",
+     "latency_ms": 3001,
+     "policy_version": "phase5a-synth-v1",
+     "proposal": null,
+     "proto": "http",
+     "provider": "nim:nvidia/nemotron-3.5-super-vl-120b-a12b",
+     "reason": "no answer within 3s",
+     "request": "GET /admin/login",
+     "served": false,
+     "service": "web",
+     "source": "ai",
+     "status": "timeout"
+    }
+   ],
+   "command": "curl -s -m 5 http://web:8080/admin/login",
+   "command_raw": null,
+   "created_at": "2026-10-20T15:34:53.295082",
+   "duration_ms": 42,
+   "exit_code": 0,
+   "input_hash": "054d39850f60dbb9dd22bd2400525b71eb0b7c58a4acd350d603f50edfeb63f3",
+   "operation": "exec_command",
+   "request_id": "f8e4f199-2da5-4c13-89c7-28477602f1e7",
+   "runtime_killed": false,
+   "source": "execution",
+   "stderr": "",
+   "stdout": "{\"error\": \"not found\"}",
+   "timed_out": false,
+   "truncated": false
+  },
+  {
+   "ai_proposals": [],
+   "command": "export DB_PASSWORD=<REDACTED:kv_secret>",
+   "command_raw": null,
+   "created_at": "2026-10-20T15:34:53.434583",
+   "duration_ms": 25,
+   "exit_code": 0,
+   "input_hash": "d45a6d008872bd7174c76d46b553f9759ce09f9ea556e161cb9c320caff565d3",
+   "operation": "exec_command",
+   "request_id": "ec291ebb-58c2-478a-9a45-36ec1576cb78",
+   "runtime_killed": false,
+   "source": "execution",
+   "stderr": "",
+   "stdout": "",
+   "timed_out": false,
+   "truncated": false
+  },
+  {
+   "ai_proposals": [],
+   "command": "echo '<img src=x onerror=alert(document.domain)>' > /tmp/note.html",
+   "command_raw": null,
+   "created_at": "2026-10-20T15:34:53.533138",
+   "duration_ms": 25,
+   "exit_code": 0,
+   "input_hash": "a33d14027e1ad4f40ae355bb01474b93ff23a425b0a2e5955af133adcd2b7fc3",
+   "operation": "exec_command",
+   "request_id": "6d6da51f-968a-4bdb-a89a-c1f2671e8747",
+   "runtime_killed": false,
+   "source": "execution",
+   "stderr": "",
+   "stdout": "",
+   "timed_out": false,
+   "truncated": false
+  },
+  {
+   "ai_proposals": [],
+   "command": "cat /tmp/note.html",
+   "command_raw": null,
+   "created_at": "2026-10-20T15:34:53.639435",
+   "duration_ms": 25,
+   "exit_code": 0,
+   "input_hash": "c1fad7f141dc94e7e40f58806e4f528aaeff393e307bb9c467d236364460b617",
+   "operation": "exec_command",
+   "request_id": "aae0c6bf-ef4c-4e27-9867-7c693cfe02f0",
+   "runtime_killed": false,
+   "source": "execution",
+   "stderr": "",
+   "stdout": "<img src=x onerror=alert(document.domain)>\n",
+   "timed_out": false,
+   "truncated": false
+  },
+  {
+   "ai_proposals": [],
+   "command": "ls -la /tmp",
+   "command_raw": null,
+   "created_at": "2026-10-20T15:34:53.741424",
+   "duration_ms": 27,
+   "exit_code": 0,
+   "input_hash": "a32c850bee3a88458492859b77c89d9b20acbee501c8d8c80ca950698651c33d",
+   "operation": "exec_command",
+   "request_id": "3b0341c1-5e36-4dc7-8b16-4ca1b42be54d",
+   "runtime_killed": false,
+   "source": "execution",
+   "stderr": "",
+   "stdout": "total 4\ndrwxrwxrwt 2 root root 60 Oct 20 15:34 .\ndrwxr-xr-x 1 root root 12 Oct 20 15:34 ..\n-rw-r--r-- 1 user user 43 Oct 20 15:34 note.html\n",
+   "timed_out": false,
+   "truncated": false
+  }
+ ],
+ "note": "Recorded by scripts/seed_demo_session.py through the real SSH gateway. Synthetic data only.",
+ "recorded_at": "2026-10-20T15:35:03+00:00",
+ "session": {
+  "ai_gaps": 2,
+  "ai_policy_version": "phase5a-synth-v1",
+  "commands": 13,
+  "end_reason": "disconnect",
+  "ended_at": "2026-10-20T15:34:53.936169",
+  "id": "61df2444-8279-4ac1-859b-c6416d242d1c",
+  "last_activity_at": "2026-10-20T15:34:53.848041",
+  "runtime_id": "0013bdb6e3525e14e909978c99cd40ad46ae153db91c013308de133e574e3b91",
+  "snapshot_id": "9ba7f18e-680b-448f-9b65-8332932ed0cc",
+  "source_ip": "127.0.0.1",
+  "started_at": "2026-10-20T15:34:51.906138",
+  "status": "destroyed"
+ },
+ "tree": {
+  "nodes": [
+   {
+    "basis": [],
+    "id": "b7be6d99-6dbc-41e2-81b1-e549526baced",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": null,
+    "path": "/",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "10986f8b-3b98-433e-a51a-bad91c82c037",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "b7be6d99-6dbc-41e2-81b1-e549526baced",
+    "path": "/databases",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "ee8eeee7-af29-43c9-b97f-747fffe30870",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "10986f8b-3b98-433e-a51a-bad91c82c037",
+    "path": "/databases/shop",
+    "sensitivity": "synthetic-sensitive",
+    "type": "database",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "efeded9d-6b3c-4ca1-b3f7-b63e30921867",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "b7be6d99-6dbc-41e2-81b1-e549526baced",
+    "path": "/docker-entrypoint-initdb.d",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "97a5e669-0662-4291-9896-637d9064d0b8",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "efeded9d-6b3c-4ca1-b3f7-b63e30921867",
+    "path": "/docker-entrypoint-initdb.d/01-schema.sql",
+    "sensitivity": "synthetic-sensitive",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "4f5792f4-00aa-43c0-a711-68db002c6d7d",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "b7be6d99-6dbc-41e2-81b1-e549526baced",
+    "path": "/etc",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "f0eaefca-256d-42c4-ae38-157166e97074",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "4f5792f4-00aa-43c0-a711-68db002c6d7d",
+    "path": "/etc/group",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "fb1c1628-64b1-4667-8d17-a870c75efedd",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "4f5792f4-00aa-43c0-a711-68db002c6d7d",
+    "path": "/etc/motd",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "ef5678e6-9921-417c-9f25-fd5c1d8e93c0",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "4f5792f4-00aa-43c0-a711-68db002c6d7d",
+    "path": "/etc/passwd",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "8ab39ee8-0f71-4bb8-8d88-0346f7be0dc5",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "4f5792f4-00aa-43c0-a711-68db002c6d7d",
+    "path": "/etc/postgresql",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "2bafe837-00b4-42f8-9d51-37dd91e48663",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "8ab39ee8-0f71-4bb8-8d88-0346f7be0dc5",
+    "path": "/etc/postgresql/16",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "f8583a1a-4630-4bf4-b095-d71bee1d291a",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "2bafe837-00b4-42f8-9d51-37dd91e48663",
+    "path": "/etc/postgresql/16/main",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "9a5e1b62-2be3-467e-bdc2-1fdb84531510",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "f8583a1a-4630-4bf4-b095-d71bee1d291a",
+    "path": "/etc/postgresql/16/main/pg_hba.conf",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "d1cad7de-b24e-4887-8512-58607c193f08",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "f8583a1a-4630-4bf4-b095-d71bee1d291a",
+    "path": "/etc/postgresql/16/main/postgresql.conf",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "73b9dce4-6538-4c85-b1db-1dd1d569d976",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "4f5792f4-00aa-43c0-a711-68db002c6d7d",
+    "path": "/etc/redis",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "2740427c-314c-4a57-b9a4-348d5bf0e661",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "73b9dce4-6538-4c85-b1db-1dd1d569d976",
+    "path": "/etc/redis/redis.conf",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "6048ebe2-a3fd-4d3a-8598-84dac0622994",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "b7be6d99-6dbc-41e2-81b1-e549526baced",
+    "path": "/home",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "315b6ed2-309d-4e3c-8d37-91ea34274f3d",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "6048ebe2-a3fd-4d3a-8598-84dac0622994",
+    "path": "/home/user",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [
+     "command-argument"
+    ],
+    "id": "24130506-0f7f-48fb-a2e6-0f82a02c304d",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "315b6ed2-309d-4e3c-8d37-91ea34274f3d",
+    "path": "/home/user/.pgpass",
+    "sensitivity": "synthetic-sensitive",
+    "type": "file",
+    "visits": 2
+   },
+   {
+    "basis": [],
+    "id": "b3f19082-60fc-4022-b093-47b85fb154fd",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "b7be6d99-6dbc-41e2-81b1-e549526baced",
+    "path": "/services",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "34fa0eda-f09f-49b6-9a12-78d0c8ea7ffd",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "b3f19082-60fc-4022-b093-47b85fb154fd",
+    "path": "/services/cache",
+    "sensitivity": "public",
+    "type": "service",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "d639d430-8416-417c-bca1-d9a44f83b156",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "34fa0eda-f09f-49b6-9a12-78d0c8ea7ffd",
+    "path": "/services/cache/tcp-6379",
+    "sensitivity": "public",
+    "type": "endpoint",
+    "visits": 0
+   },
+   {
+    "basis": [
+     "service-request"
+    ],
+    "id": "6ebade72-dbe6-490d-8a59-1b216f6d2c47",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "b3f19082-60fc-4022-b093-47b85fb154fd",
+    "path": "/services/db",
+    "sensitivity": "public",
+    "type": "service",
+    "visits": 4
+   },
+   {
+    "basis": [],
+    "id": "e28d9409-24a4-4677-a4e8-e852b02d2d97",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "6ebade72-dbe6-490d-8a59-1b216f6d2c47",
+    "path": "/services/db/tcp-5432",
+    "sensitivity": "public",
+    "type": "endpoint",
+    "visits": 0
+   },
+   {
+    "basis": [
+     "service-request"
+    ],
+    "id": "9a45ccd0-8aca-4422-ab09-89ed56b6048f",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "b3f19082-60fc-4022-b093-47b85fb154fd",
+    "path": "/services/web",
+    "sensitivity": "public",
+    "type": "service",
+    "visits": 2
+   },
+   {
+    "basis": [],
+    "id": "4603cbc7-3480-4053-8b39-209735a81e72",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "9a45ccd0-8aca-4422-ab09-89ed56b6048f",
+    "path": "/services/web/tcp-8080",
+    "sensitivity": "public",
+    "type": "endpoint",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "b7be6d99-6dbc-41e2-81b1-e549526baced",
+    "path": "/users",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "3ce0b7cf-8b67-466e-aedd-572b64f02113",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/backup",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "7c6d0476-f811-430e-a9d6-2b8b73143b09",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/bin",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "ee4bdc90-0c81-4371-a0b4-aaeb7f7a91a6",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/daemon",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "a7fdfebb-f697-43a7-ba91-e4136201e274",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/games",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "c3a391a4-5430-4d99-b6c2-5d449b5f59ec",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/hornet-sys",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "433c3deb-298e-4ae7-bb0e-3af55fe053de",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/lp",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "93819f50-8b0a-4faf-bfa8-d8a9d4131603",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/mail",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "484c9587-b40e-4d7a-b697-25531a029c16",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/man",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "5cb83f0f-1b66-4daa-85d5-2ea42a217b96",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/news",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "8fb63418-05fb-4b7a-9725-3bdf1972ac4e",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/nobody",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "78b848c1-a8ab-417a-9dba-dcaba1b4f1c6",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/postgres",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "3adae7c8-1b71-4102-8ddb-33efff3d7ab6",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/proxy",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "0c84cd8d-dd5e-458e-af31-9bd5b9109dab",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/redis",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "21b60ce9-0ab5-4a4b-8149-aa458db4ef36",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/root",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "f81cd74d-5d2d-4909-a805-37c9b314e871",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/shop",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "734c2431-5ce0-4847-a632-33f1a393b31a",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/sync",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "384c57b2-d0d7-498a-b6bd-1845374cd8b7",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/sys",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "6ef7706a-270c-438e-b092-4ffec8891ea7",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/user",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "602c9d5d-fecf-45a3-8e1b-886e61eac6ec",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "569829a9-c865-4875-afea-c97d88d180ff",
+    "path": "/users/www-data",
+    "sensitivity": "public",
+    "type": "user",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "02788924-262b-48cb-a8d2-8e2d85bb940d",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "b7be6d99-6dbc-41e2-81b1-e549526baced",
+    "path": "/usr",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "874b74df-4ecf-4a86-96be-87f60d2bfd04",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "02788924-262b-48cb-a8d2-8e2d85bb940d",
+    "path": "/usr/share",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "308984b0-3560-4da1-b86b-b7b5b1ba5662",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "874b74df-4ecf-4a86-96be-87f60d2bfd04",
+    "path": "/usr/share/hornet",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "0251aac1-84a2-485b-bd6f-f85bbfafc909",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "308984b0-3560-4da1-b86b-b7b5b1ba5662",
+    "path": "/usr/share/hornet/services.json",
+    "sensitivity": "synthetic-sensitive",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "2d8ce427-bc25-4c72-8942-25448f184391",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "b7be6d99-6dbc-41e2-81b1-e549526baced",
+    "path": "/var",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "21229e30-3b51-4eb6-9c08-426d1150e18b",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "2d8ce427-bc25-4c72-8942-25448f184391",
+    "path": "/var/lib",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "7a6316c0-a934-4caf-9e28-24a3fc480709",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "21229e30-3b51-4eb6-9c08-426d1150e18b",
+    "path": "/var/lib/postgresql",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "a2cb720c-c4f9-4f02-bd7b-410a7b6bf792",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "7a6316c0-a934-4caf-9e28-24a3fc480709",
+    "path": "/var/lib/postgresql/16",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "281d3846-72d0-4c38-a3e8-7f9d8352fc4f",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "a2cb720c-c4f9-4f02-bd7b-410a7b6bf792",
+    "path": "/var/lib/postgresql/16/main",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "c43d81fa-59e5-4f5c-b55e-22cf147b0d02",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "281d3846-72d0-4c38-a3e8-7f9d8352fc4f",
+    "path": "/var/lib/postgresql/16/main/PG_VERSION",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "a9723593-2a48-43a1-aa6f-9a7661e1dcb6",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "2d8ce427-bc25-4c72-8942-25448f184391",
+    "path": "/var/log",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "2782b370-1f16-4442-8a15-1648405bfd3d",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "a9723593-2a48-43a1-aa6f-9a7661e1dcb6",
+    "path": "/var/log/postgresql",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "cf500cb5-f46c-4ec4-9f52-6fc23b0c3ec3",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "2782b370-1f16-4442-8a15-1648405bfd3d",
+    "path": "/var/log/postgresql/postgresql-16-main.log",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "e7cad75a-1351-42a5-845b-8749a8583e5e",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "a9723593-2a48-43a1-aa6f-9a7661e1dcb6",
+    "path": "/var/log/redis",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "d712d52b-d6b4-49b5-b613-abe3d8f59260",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "e7cad75a-1351-42a5-845b-8749a8583e5e",
+    "path": "/var/log/redis/redis-server.log",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "41ef50ad-0898-40f5-a7bd-2c9126d8d61b",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "a9723593-2a48-43a1-aa6f-9a7661e1dcb6",
+    "path": "/var/log/shop",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "28efd1e7-4376-463b-838c-f98db8005e68",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "41ef50ad-0898-40f5-a7bd-2c9126d8d61b",
+    "path": "/var/log/shop/access.log",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "253a8650-9f53-4372-b455-4714916882d7",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "41ef50ad-0898-40f5-a7bd-2c9126d8d61b",
+    "path": "/var/log/shop/app.log",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "2a59a50c-907c-4030-80fb-931c7eec5777",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "2d8ce427-bc25-4c72-8942-25448f184391",
+    "path": "/var/www",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "f010c396-dfe9-4bd0-9b25-d29adb3c2831",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "2a59a50c-907c-4030-80fb-931c7eec5777",
+    "path": "/var/www/shop",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "a5a81f23-83b1-4f97-bbae-90924bd74716",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "f010c396-dfe9-4bd0-9b25-d29adb3c2831",
+    "path": "/var/www/shop/.env",
+    "sensitivity": "synthetic-sensitive",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "b40e1a70-8e7b-4907-9b2e-29928a98acd3",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "f010c396-dfe9-4bd0-9b25-d29adb3c2831",
+    "path": "/var/www/shop/README.md",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "8f867f32-7a4e-49ce-ad9e-0fcc2fc5e4d1",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "f010c396-dfe9-4bd0-9b25-d29adb3c2831",
+    "path": "/var/www/shop/app",
+    "sensitivity": "public",
+    "type": "directory",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "0812c0ac-ad02-4aff-b2a8-73fe4c7087fa",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "8f867f32-7a4e-49ce-ad9e-0fcc2fc5e4d1",
+    "path": "/var/www/shop/app/__init__.py",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "896abbde-0e8a-4e08-9b51-e60c58846935",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "8f867f32-7a4e-49ce-ad9e-0fcc2fc5e4d1",
+    "path": "/var/www/shop/app/main.py",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": "8d4b7630-5e08-4ca9-88cd-642b53b518da",
+    "in_base": true,
+    "overlay": null,
+    "parent_id": "f010c396-dfe9-4bd0-9b25-d29adb3c2831",
+    "path": "/var/www/shop/requirements.txt",
+    "sensitivity": "public",
+    "type": "file",
+    "visits": 0
+   },
+   {
+    "basis": [],
+    "id": null,
+    "in_base": false,
+    "overlay": "created",
+    "parent_id": null,
+    "path": "/tmp/note.html",
+    "sensitivity": "attacker-created",
+    "type": "file",
+    "visits": 0
+   }
+  ],
+  "session_id": "61df2444-8279-4ac1-859b-c6416d242d1c",
+  "snapshot_id": "9ba7f18e-680b-448f-9b65-8332932ed0cc",
+  "version": 1
+ },
+ "typed": [
+  "cat ~/.pgpass 2>/dev/null",
+  "id",
+  "hostname",
+  "ls -la",
+  "cat ~/.pgpass",
+  "psql -h db -p 5432 -U shop shop -c '\\dt'",
+  "psql -h db -p 5432 -U shop shop -c 'explain select 1'",
+  "curl -s -m 5 http://web:8080/health",
+  "curl -s -m 5 http://web:8080/admin/login",
+  "export DB_PASSWORD=<REDACTED:kv_secret>",
+  "echo '<img src=x onerror=alert(document.domain)>' > /tmp/note.html",
+  "cat /tmp/note.html",
+  "ls -la /tmp"
+ ]
+}

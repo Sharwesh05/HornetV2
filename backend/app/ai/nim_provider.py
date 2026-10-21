@@ -56,6 +56,8 @@ class NimProvider:
         max_retries: int = 2,
         transport: httpx.BaseTransport | None = None,
         sleep=time.sleep,
+        thinking: bool | None = None,
+        guided_json: bool = True,
     ):
         if not api_key:
             raise AIProviderError("NVIDIA API key is not configured")
@@ -66,6 +68,12 @@ class NimProvider:
         self._retries = max_retries
         self._max_tokens = max_tokens
         self._sleep = sleep
+        # None: the model's default. False: ask a reasoning model to answer without thinking first (the synthesis
+        # path: about 1 s instead of about 9 s on Nemotron 3); dropped again if the deployment does not accept it
+        self._thinking = thinking
+        # NVIDIA's schema-constrained decoding. Callers validate in code regardless; turning it off avoids its cost
+        # (measured: Nemotron 3 Super 11.3 s with it vs 1.5 s without; another model answered 503 with it)
+        self._guided_json = guided_json
         self._client = httpx.Client(timeout=timeout_s, transport=transport)
 
     def __repr__(self) -> str:  # never show the key
@@ -102,11 +110,16 @@ class NimProvider:
             "temperature": 0.0,
             "max_tokens": self._max_tokens,
             "stream": False,
-            "nvext": {"guided_json": output_schema},  # NVIDIA's schema-constrained decoding
         }
+        if self._guided_json:
+            payload["nvext"] = {"guided_json": output_schema}
+        if self._thinking is not None:
+            payload["chat_template_kwargs"] = {"enable_thinking": self._thinking}
         resp = self._post(payload)
-        if resp.status_code in (400, 422) and "nvext" in payload:
-            payload.pop("nvext")  # some deployments do not accept the extension: ask in the prompt only
+        if resp.status_code in (400, 422) and ("nvext" in payload or "chat_template_kwargs" in payload):
+            # some deployments do not accept these extensions: ask in the prompt only, with the model's defaults
+            payload.pop("nvext", None)
+            payload.pop("chat_template_kwargs", None)
             resp = self._post(payload)
         if resp.status_code in (401, 403):
             raise AIProviderError("NIM rejected the API key")

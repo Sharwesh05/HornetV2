@@ -1,0 +1,100 @@
+{
+  "docker": {
+    "title": "Real Docker project",
+    "line": "The real, live server that Hornet makes a copy of.",
+    "does": "This is a genuine system that its owner has allowed Hornet to look at. Hornet only looks. It never changes it and never sends it anything an outsider typed.",
+    "matters": "Your real system stays safe. Everything an intruder touches is a fake copy.",
+    "talks": "Hornet reads it through the Docker API (read-only calls)."
+  },
+  "discovery": {
+    "title": "Discovery",
+    "line": "The inspector that writes down what is running.",
+    "does": "It makes a list of the programs, ports and settings on the real system. It is allowed to read only. Passwords and other secret values are thrown away the moment they are seen. Only the names of settings are kept.",
+    "matters": "Hornet learns what the real system looks like without ever holding its secrets.",
+    "talks": "Docker API, read-only. Only systems on an approved list can be inspected."
+  },
+  "sanitizer": {
+    "title": "Sanitizer",
+    "line": "The redaction pen that blacks out anything sensitive.",
+    "does": "It hunts through the inventory for passwords, keys, tokens, email addresses and private network addresses and replaces them with a placeholder. A final check then scans everything again. If even one secret is left, the whole build stops.",
+    "matters": "Nothing real can leak into the fake copy or reach the AI helper. This check always has the last word.",
+    "talks": "Ordinary function calls inside one program (in-process)."
+  },
+  "ai": {
+    "title": "AI provider (optional)",
+    "line": "An optional writing assistant, kept on a short leash.",
+    "does": "It can suggest believable fake documents, such as notes or shell history, and can point out more sensitive text to remove. It only ever sees text that has already been blacked out. It cannot run anything, and every answer it gives is checked by ordinary code before it is used. If it is off or wrong, the build still works.",
+    "matters": "The fake world looks more realistic, without the AI ever being trusted.",
+    "talks": "HTTPS to NVIDIA NIM, or a built-in offline template instead."
+  },
+  "builder": {
+    "title": "Plan builder",
+    "line": "The set designer who invents a believable fake office.",
+    "does": "From the cleaned inventory it draws up fake files, fake user accounts and a fake database with made-up people and records. It then checks that the story is consistent, for example that every user in the user list also appears in the database.",
+    "matters": "A fake that contradicts itself would be spotted by an intruder. Consistency keeps the illusion.",
+    "talks": "In-process Python calls."
+  },
+  "imgbuilder": {
+    "title": "Image builder",
+    "line": "Packs the fake office into a sealed, numbered box.",
+    "does": "It bakes the plan into a Docker image: a frozen template that every visitor's private room is copied from. The template is identified by a fingerprint, so it is always clear exactly which version a visitor saw.",
+    "matters": "Every visitor gets the same clean starting point, and investigators can prove what was shown.",
+    "talks": "Docker API (build an image). The result is recorded in the database."
+  },
+  "operator": {
+    "title": "Operator",
+    "line": "The human administrator running Hornet.",
+    "does": "They ask Hornet to build a new fake copy, check it and publish it. They can also look at what visitors did.",
+    "matters": "People stay in control. Nothing becomes live until the administrator publishes it.",
+    "talks": "REST over HTTP with a secret key (X-API-Key)."
+  },
+  "api": {
+    "title": "Admin API",
+    "line": "The control panel, and the only door for the administrator.",
+    "does": "It starts builds, validates and publishes versions, lists visits and shows the recorded activity. Every request must carry the secret key, and each important action is written to a log. It is never used by intruders.",
+    "matters": "Management is kept completely separate from the trap that intruders see.",
+    "talks": "HTTP REST with an X-API-Key header. Hornet refuses to start with a weak key."
+  },
+  "db": {
+    "title": "Database",
+    "line": "The filing cabinet and the black-box recorder in one.",
+    "does": "It keeps each version of the fake copy. Once a version is published it is locked and cannot be edited. It also keeps a record of what happened: commands, file changes, login attempts and administrator actions, each in its own drawer that can only be added to.",
+    "matters": "Investigators can replay an incident, and the evidence cannot be quietly rewritten.",
+    "talks": "SQL, through SQLAlchemy, to PostgreSQL (SQLite is used for development)."
+  },
+  "attacker": {
+    "title": "Attacker",
+    "line": "The untrusted visitor Hornet is built to watch.",
+    "does": "They connect over the internet and try to log in, explore and run commands. They believe they are on a real server. They can only ever reach the SSH front door.",
+    "matters": "Everything they do is watched and recorded while they cannot harm anything real.",
+    "talks": "SSH (version 2), by default on port 2222."
+  },
+  "gateway": {
+    "title": "SSH gateway",
+    "line": "The front door, with a deliberately easy lock.",
+    "does": "It records every connection and every password tried, and caps connections per address. After a few attempts, or for very common passwords, it lets the visitor in, as a real trap would. It refuses file transfers and tunnelling through the connection.",
+    "matters": "It draws visitors in so they can be observed, without giving them a way to reach anything else.",
+    "talks": "SSH with the attacker. Plain in-process calls to the Session manager."
+  },
+  "sessions": {
+    "title": "Session manager",
+    "line": "The hotel manager who hands each visitor a private room.",
+    "does": "Each connection gets its own room. The manager follows strict stages (requested, starting, ready, active, ending, destroyed), enforces a cap on how many rooms exist, and tidies away rooms that are too old or idle. It records every command and what changed, and runs exactly one command at a time per room.",
+    "matters": "Visitors cannot see each other, and a runaway room is always cleaned up.",
+    "talks": "Python interface (RuntimeDriver) to the driver. SQL to the database."
+  },
+  "driver": {
+    "title": "Hardened driver",
+    "line": "The locksmith who builds each room with the doors bolted.",
+    "does": "It starts every room with no network, almost no privileges, a read-only system area, and hard limits on time, memory, processes and output size. If a command misbehaves, it stops it, and if needed it destroys the whole room. The limits come from the server settings, never from the visitor.",
+    "matters": "Even though visitor commands really run, the room is built to contain them. This is a lighter-weight protection than a full virtual machine, so it should not be exposed to the open internet from a laptop.",
+    "talks": "Docker API: create, run a command, inspect, destroy."
+  },
+  "twin": {
+    "title": "Twin container",
+    "line": "The disposable room where commands really run.",
+    "does": "It is a throw-away copy of the fake office. The visitor's commands run for real inside it, so the answers are genuine. Fake web, PostgreSQL and Redis services inside it answer like the real ones would. When the visitor leaves, the room is destroyed.",
+    "matters": "Realistic behaviour without any real data, and nothing carries over to the next visitor.",
+    "talks": "Inside the room: fake HTTP, PostgreSQL and Redis servers. No outside network."
+  }
+}

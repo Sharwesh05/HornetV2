@@ -39,7 +39,8 @@ RULES: tuple[_Rule, ...] = (
     # password=..., "token": "...", API_KEY: ...
     _r(
         "kv_secret",
-        r"\b(?:pass(?:word|wd)?|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|auth(?:orization)?)"
+        # (?<![A-Za-z0-9]) rather than \b: '_' is a word character, so \b missed DB_PASSWORD=..., API_TOKEN=...
+        r"(?<![A-Za-z0-9])(?:pass(?:word|wd)?|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|auth(?:orization)?)"
         r"\b[\"']?\s*[=:]\s*[\"']?(" + _NOT_REDACTED + r"[^\s\"',;&]{4,})",
         1,
         re.I,
@@ -67,6 +68,9 @@ SECRET_KINDS = frozenset(
         "url_credentials", "bearer_token", "kv_secret", "cli_secret", "high_entropy",
     }
 )
+# What is removed from attacker commands before they are stored: credentials only. Addresses, URLs and emails stay
+# (a download URL or a C2 address is the evidence), and so do long encoded blobs (a base64 payload is evidence too).
+COMMAND_SECRET_KINDS = SECRET_KINDS - {"high_entropy"}
 ALLOWED_IPS = ("127.0.0.1", "0.0.0.0")  # noqa: S104  (not a bind; these literals are harmless to keep)
 
 
@@ -113,8 +117,9 @@ def find_secrets(text: str, kinds: frozenset[str] | None = None) -> list[Finding
     return merged
 
 
-def redact(text: str) -> tuple[str, list[Finding]]:
-    findings = find_secrets(text)
+def redact(text: str, kinds: frozenset[str] | None = None) -> tuple[str, list[Finding]]:
+    """Replace findings with placeholders. `kinds=None` redacts every kind."""
+    findings = find_secrets(text, kinds)
     out, pos = [], 0
     for f in findings:
         out.append(text[pos : f.start])

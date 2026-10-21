@@ -1,14 +1,18 @@
 import secrets
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, Security, status
+from fastapi.security import APIKeyHeader
 
 from app.config import Settings, get_settings
 
 ACTOR = "admin-api-key"
 
+# Declared as a security scheme so /docs shows the Authorize button; our own 401 stays in charge.
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
 
 def require_admin(
-    x_api_key: str | None = Header(default=None),
+    x_api_key: str | None = Security(api_key_header),
     settings: Settings = Depends(get_settings),
 ) -> str:
     """Admin API authentication. Constant-time comparison; the attacker-facing gateway never

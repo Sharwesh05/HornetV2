@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-run-20261013-205657/candidate.json",
+    "sha256": "eb81acba732d4478a727f25febd5ab5d085c6625a63f260306acff1312c3851a",
+    "bytes": 4695
+  },
+  "artifact": {
+    "path": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-run-20261013-205657/hornet-run.html",
+    "sha256": "5b219a6d3c7876d884dc38c64f1f8a0eb2cc9747734251658822eeb0f0cf3662",
+    "bytes": 762718
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "fail"
+  },
+  "failedStage": "browser-check",
+  "diagnostics": [
+    {
+      "code": "viewer/evidence-path-conflict",
+      "severity": "error",
+      "message": "browser-check will not replace the existing unowned evidence path \"/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-run-20261013-205657/hornet-run.browser-check.json\".",
+      "subject": {
+        "artifact": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-run-20261013-205657/hornet-run.html",
+        "evidencePath": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-run-20261013-205657/hornet-run.browser-check.json"
+      },
+      "evidence": {
+        "reason": {
+          "code": "ownership-artifact-mismatch"
+        }
+      },
+      "supportedFixes": [
+        "move the conflicting file aside, or choose a separate --out-dir, then rerun browser-check"
+      ]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 1,
+    "shown": 1,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-run-20261013-205657/hornet-run.finalize.json",
+    "summaryReceipt": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-run-20261013-205657/hornet-run.finalize-summary.json",
+    "browserCheckReceipt": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-run-20261013-205657/hornet-run.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.0.1",
+    "availableVersion": "3.0.1",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-13T15:27:17.754Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 686
+}

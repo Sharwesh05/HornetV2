@@ -1,0 +1,128 @@
+@import "tailwindcss";
+@import "@fontsource-variable/atkinson-hyperlegible-next";
+@import "@fontsource-variable/jetbrains-mono";
+
+/* Hornet design tokens. One source of truth for both themes; src/test/contrast.test.ts checks every text/background
+   pair below against WCAG AA. Honey is the only accent and always means "live" or "needs attention". Evidence
+   (green) and AI suggestions (violet) are always paired with an icon and a label, never colour alone. */
+:root,
+:root[data-theme="light"] {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --surface-2: #eef1f5;
+  --line: #d9dee6;
+  --ink: #172033;
+  --muted: #566275;
+  --honey-text: #8a5600;
+  --honey-fill: #f0b13a;
+  --on-honey: #231600;
+  --honey-soft: #fdf1d8;
+  --evidence: #17704b;
+  --evidence-soft: #e3f4eb;
+  --ai: #6a47c2;
+  --ai-soft: #efeafc;
+  --danger: #b42318;
+  --danger-soft: #fdeceb;
+  --terminal: #101826;
+  --terminal-ink: #dfe6ef;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e1522;
+  --surface: #151e2e;
+  --surface-2: #1b2638;
+  --line: #2a3850;
+  --ink: #e7ebf2;
+  --muted: #9aa6b9;
+  --honey-text: #f2b84b;
+  --honey-fill: #f0b13a;
+  --on-honey: #231600;
+  --honey-soft: #2c2412;
+  --evidence: #4fc48d;
+  --evidence-soft: #11291f;
+  --ai: #ae96f7;
+  --ai-soft: #221b3a;
+  --danger: #f27a6b;
+  --danger-soft: #34171a;
+  --terminal: #0a0f18;
+  --terminal-ink: #dfe6ef;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-honey: var(--honey-text);
+  --color-honey-fill: var(--honey-fill);
+  --color-on-honey: var(--on-honey);
+  --color-honey-soft: var(--honey-soft);
+  --color-evidence: var(--evidence);
+  --color-evidence-soft: var(--evidence-soft);
+  --color-ai: var(--ai);
+  --color-ai-soft: var(--ai-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-terminal: var(--terminal);
+  --color-terminal-ink: var(--terminal-ink);
+}
+
+html {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+/* Visible keyboard focus everywhere (WCAG 2.4.7). */
+:focus-visible {
+  outline: 3px solid var(--honey-fill);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-1.5 rounded-md bg-honey-fill px-3.5 py-1.5 text-sm font-semibold text-on-honey transition-[filter] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  .panel {
+    @apply rounded-xl border border-line bg-surface;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+}
+
+/* The hive cells on Home: the one expressive element. A short pulse marks live sessions. */
+@keyframes hive-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.hive-live {
+  animation: hive-pulse 2.4s ease-in-out infinite;
+}

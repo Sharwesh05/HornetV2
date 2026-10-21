@@ -1,0 +1,376 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "architecture",
+  "quality": "showcase",
+  "startedAt": "2026-10-13T15:28:08.118Z",
+  "specification": {
+    "path": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/candidate.json",
+    "sha256": "63f06748a43a9d360b2ddf2944b053590042b14628eb06eb24d6715b559a07ca",
+    "bytes": 4818
+  },
+  "artifact": {
+    "path": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.html",
+    "sha256": "69c3170a68c9950c9410db4f76fcb540ca2ecb0408e447235d3d074d40e9d5b4",
+    "bytes": 763813
+  },
+  "stages": {
+    "validate": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": null,
+      "execution": "embedded-in-deliver",
+      "command": [
+        "/home/senthan/.local/share/nvm/v24.21.0/bin/node",
+        "/home/senthan/.claude/skills/archify/bin/archify.mjs",
+        "deliver",
+        "architecture",
+        "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/candidate.json",
+        "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "validate",
+        "specification": {
+          "sha256": "63f06748a43a9d360b2ddf2944b053590042b14628eb06eb24d6715b559a07ca",
+          "bytes": 4818
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        }
+      }
+    },
+    "deliver": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 380,
+      "command": [
+        "/home/senthan/.local/share/nvm/v24.21.0/bin/node",
+        "/home/senthan/.claude/skills/archify/bin/archify.mjs",
+        "deliver",
+        "architecture",
+        "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/candidate.json",
+        "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "receiptId": "9507bd18-db23-492d-9787-e52b0c3a3343",
+        "ok": true,
+        "command": "deliver",
+        "type": "architecture",
+        "input": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/candidate.json",
+        "output": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.html",
+        "specification": {
+          "sha256": "63f06748a43a9d360b2ddf2944b053590042b14628eb06eb24d6715b559a07ca",
+          "bytes": 4818
+        },
+        "artifact": {
+          "sha256": "69c3170a68c9950c9410db4f76fcb540ca2ecb0408e447235d3d074d40e9d5b4",
+          "bytes": 763813
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        },
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      }
+    },
+    "check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 168,
+      "command": [
+        "/home/senthan/.local/share/nvm/v24.21.0/bin/node",
+        "/home/senthan/.claude/skills/archify/bin/archify.mjs",
+        "check",
+        "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.html",
+        "--require-provenance"
+      ],
+      "receipt": {
+        "ok": true,
+        "file": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.html",
+        "artifact": {
+          "sha256": "69c3170a68c9950c9410db4f76fcb540ca2ecb0408e447235d3d074d40e9d5b4",
+          "bytes": 763813
+        },
+        "checks": [
+          {
+            "name": "single_svg",
+            "ok": true,
+            "details": [
+              "found 1 <svg> block(s)"
+            ]
+          },
+          {
+            "name": "finite_svg",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "orthogonal_arrows",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "label_route_clearance",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_crossings",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_corridors",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "container_border_runs",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "route_rhythm",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "legend_clearance",
+            "ok": true,
+            "details": []
+          }
+        ],
+        "composition": {
+          "schemaVersion": 1,
+          "profile": "showcase",
+          "status": "pass",
+          "summary": {
+            "errors": 0,
+            "warnings": 0
+          },
+          "metrics": {
+            "properCrossings": 0,
+            "resolvedCrossovers": 0,
+            "ambiguousCorridors": 0,
+            "arrowheadCollisions": 0,
+            "containerBorderRuns": 0,
+            "labelRouteClearanceIssues": 0,
+            "labelCanvasOverflowIssues": 0,
+            "minLabelRouteClearance": 68.3,
+            "desktopReadabilityIssues": 0,
+            "viewportHeightIssues": 0,
+            "minProjectedNodeTextPx": 7.5,
+            "maxBends": 1,
+            "routesOverSuggestedBends": 0,
+            "maxStretch": 1,
+            "routesOverSuggestedStretch": 0,
+            "minSegmentPx": 55,
+            "minInteriorSegmentPx": null,
+            "shortSegmentCount": 0,
+            "shortEndpointSegmentCount": 0,
+            "shortInteriorSegmentCount": 0,
+            "microSegmentCount": 0
+          },
+          "suggestedLimits": {
+            "bendsPerRelationship": 2,
+            "stretch": 1.35,
+            "segmentPx": 16,
+            "microSegmentPx": 8
+          },
+          "routeReview": {
+            "crossings": [],
+            "detours": []
+          },
+          "leadingSpace": {
+            "measured": true,
+            "emptyTopPx": 30,
+            "emptyTopRatio": 0.055,
+            "occupiedTop": 30,
+            "viewBoxTop": 0,
+            "canvasHeight": 548,
+            "typicalNodeHeight": 60,
+            "reviewSuggested": false
+          },
+          "desktopReadability": {
+            "budgetBasis": "recognized-declared-wide",
+            "readerContract": "declared-wide-v1",
+            "availableDiagramWidth": 1218.75,
+            "actualBudgetPx": 1218.75,
+            "actualReaderWidth": 1248.75,
+            "desiredReaderWidth": 1248.75,
+            "viewportCap": 1376,
+            "limit": "source-size",
+            "requestedTargetPx": 7.5,
+            "requestedTargetMet": true,
+            "hardFloorPx": 6,
+            "hardFloorMet": true,
+            "minimumOwner": {
+              "kind": "edge",
+              "id": "docker-to-discovery",
+              "from": "docker",
+              "to": "discovery"
+            },
+            "minimumSourceTextPx": 8,
+            "minimumProjectedTextPx": 7.5,
+            "semanticTextCount": 30
+          },
+          "issues": []
+        },
+        "provenance": "current",
+        "deliveryReceiptId": "9507bd18-db23-492d-9787-e52b0c3a3343"
+      }
+    },
+    "browser-check": {
+      "status": "fail",
+      "exitCode": 1,
+      "durationMs": 11,
+      "command": [
+        "/home/senthan/.local/share/nvm/v24.21.0/bin/node",
+        "/home/senthan/.claude/skills/archify/bin/archify.mjs",
+        "browser-check",
+        "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.html",
+        "--json",
+        "--require-provenance"
+      ],
+      "execution": "in-process",
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": false,
+        "command": "browser-check",
+        "evidenceKind": "automated-browser",
+        "status": "fail",
+        "visualReview": "not-requested",
+        "provenance": "current",
+        "deliveryReceiptId": "9507bd18-db23-492d-9787-e52b0c3a3343",
+        "artifact": {
+          "path": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.html",
+          "sha256": "69c3170a68c9950c9410db4f76fcb540ca2ecb0408e447235d3d074d40e9d5b4",
+          "bytes": 763813
+        },
+        "state": {
+          "detail": "read",
+          "motion": "still"
+        },
+        "chrome": {
+          "status": "not-checked",
+          "executable": null
+        },
+        "diagnostics": [
+          {
+            "code": "viewer/evidence-path-conflict",
+            "severity": "error",
+            "message": "browser-check will not replace the existing unowned evidence path \"/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.browser-check.json\".",
+            "subject": {
+              "artifact": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.html",
+              "evidencePath": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.browser-check.json"
+            },
+            "evidence": {
+              "reason": {
+                "code": "ownership-artifact-mismatch"
+              }
+            },
+            "supportedFixes": [
+              "move the conflicting file aside, or choose a separate --out-dir, then rerun browser-check"
+            ]
+          }
+        ],
+        "containment": {
+          "status": "fail",
+          "policy": "fit-or-reader-declared-readable-vertical-scroll",
+          "viewports": []
+        },
+        "themeStates": {
+          "status": "fail",
+          "viewports": []
+        },
+        "readability": {
+          "status": "fail",
+          "minimumProjectedNodeTextPx": 6,
+          "viewports": []
+        },
+        "viewerChrome": {
+          "status": "fail",
+          "viewports": []
+        },
+        "captures": {
+          "status": "not-requested",
+          "screenshots": [],
+          "contactSheet": null
+        },
+        "sidecars": {
+          "receipt": "hornet-build.browser-check.json",
+          "files": []
+        },
+        "error": "browser-check will not replace the existing unowned evidence path \"/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.browser-check.json\"."
+      }
+    }
+  },
+  "diagnostics": [
+    {
+      "code": "viewer/evidence-path-conflict",
+      "severity": "error",
+      "message": "browser-check will not replace the existing unowned evidence path \"/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.browser-check.json\".",
+      "subject": {
+        "artifact": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.html",
+        "evidencePath": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.browser-check.json"
+      },
+      "evidence": {
+        "reason": {
+          "code": "ownership-artifact-mismatch"
+        }
+      },
+      "supportedFixes": [
+        "move the conflicting file aside, or choose a separate --out-dir, then rerun browser-check"
+      ]
+    }
+  ],
+  "evidence": {
+    "receipt": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.finalize.json",
+    "summaryReceipt": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.finalize-summary.json",
+    "browserCheckReceipt": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-build-20261013-205657/hornet-build.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "failedStage": "browser-check",
+  "finishedAt": "2026-10-13T15:28:08.826Z",
+  "durationMs": 708,
+  "update": {
+    "status": "current",
+    "installedVersion": "3.0.1",
+    "availableVersion": "3.0.1",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-13T15:27:17.754Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  }
+}

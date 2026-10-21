@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "d8d02a8a-a867-4169-bf5a-65eee5c5983b",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-run-20261013-205657/candidate.json",
+  "output": "/home/senthan/Documents/Dev/HornetV2/.archify/architecture-hornet-run-20261013-205657/hornet-run.html",
+  "specification": {
+    "sha256": "eb81acba732d4478a727f25febd5ab5d085c6625a63f260306acff1312c3851a",
+    "bytes": 4695
+  },
+  "artifact": {
+    "sha256": "5b219a6d3c7876d884dc38c64f1f8a0eb2cc9747734251658822eeb0f0cf3662",
+    "bytes": 762718
+  }
+}

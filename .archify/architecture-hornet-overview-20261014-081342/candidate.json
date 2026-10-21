@@ -1,0 +1,382 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Hornet v2: High-Level Architecture",
+    "output": ".archify/architecture-hornet-overview-20261014-081342/hornet-overview.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "docker",
+      "type": "external",
+      "label": "Real Docker project",
+      "sublabel": "authorized, read-only",
+      "pos": [
+        30,
+        260
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "discovery",
+      "type": "backend",
+      "label": "Discovery",
+      "sublabel": "4 read calls only",
+      "pos": [
+        255,
+        260
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "sanitizer",
+      "type": "security",
+      "label": "Sanitizer",
+      "sublabel": "regex + assert_clean",
+      "pos": [
+        480,
+        260
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "tag": "last word"
+    },
+    {
+      "id": "builder",
+      "type": "backend",
+      "label": "Plan builder",
+      "sublabel": "files, users, DB",
+      "pos": [
+        705,
+        260
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "imgbuilder",
+      "type": "backend",
+      "label": "Image builder",
+      "sublabel": "pinned twin image",
+      "pos": [
+        930,
+        260
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "ai",
+      "type": "cloud",
+      "label": "AI provider",
+      "sublabel": "template or NIM",
+      "pos": [
+        592,
+        90
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "tag": "optional"
+    },
+    {
+      "id": "operator",
+      "type": "external",
+      "label": "Operator",
+      "sublabel": "X-API-Key",
+      "pos": [
+        30,
+        480
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Admin API",
+      "sublabel": "FastAPI /api/v1",
+      "pos": [
+        255,
+        480
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Database",
+      "sublabel": "snapshots, evidence",
+      "pos": [
+        480,
+        480
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "attacker",
+      "type": "external",
+      "label": "Attacker",
+      "sublabel": "untrusted ssh",
+      "pos": [
+        30,
+        700
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "gateway",
+      "type": "security",
+      "label": "SSH gateway",
+      "sublabel": "login policy, IP cap",
+      "pos": [
+        255,
+        700
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "sessions",
+      "type": "backend",
+      "label": "Session manager",
+      "sublabel": "state machine, limits",
+      "pos": [
+        480,
+        700
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "driver",
+      "type": "backend",
+      "label": "Hardened driver",
+      "sublabel": "RuntimeDriver",
+      "pos": [
+        705,
+        700
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "twin",
+      "type": "backend",
+      "label": "Twin container",
+      "sublabel": "real cmds + fake svcs",
+      "pos": [
+        930,
+        700
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "tag": "no network"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Construction plane: build the twin",
+      "wraps": [
+        "discovery",
+        "sanitizer",
+        "builder",
+        "imgbuilder",
+        "ai"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "Management plane",
+      "wraps": [
+        "operator",
+        "api",
+        "db"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Execution plane: run the twin",
+      "wraps": [
+        "gateway",
+        "sessions",
+        "driver",
+        "twin"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "docker-to-discovery",
+      "from": "docker",
+      "to": "discovery",
+      "label": "read-only",
+      "variant": "emphasis"
+    },
+    {
+      "id": "discovery-to-sanitizer",
+      "from": "discovery",
+      "to": "sanitizer",
+      "label": "raw data",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sanitizer-to-builder",
+      "from": "sanitizer",
+      "to": "builder",
+      "label": "clean",
+      "variant": "emphasis"
+    },
+    {
+      "id": "builder-to-image",
+      "from": "builder",
+      "to": "imgbuilder",
+      "label": "context",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ai-review",
+      "from": "ai",
+      "to": "sanitizer",
+      "label": "remove",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "top"
+    },
+    {
+      "id": "ai-docs",
+      "from": "ai",
+      "to": "builder",
+      "label": "docs",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "operator-to-api",
+      "from": "operator",
+      "to": "api",
+      "label": "requests"
+    },
+    {
+      "id": "api-to-discovery",
+      "from": "api",
+      "to": "discovery",
+      "label": "build",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "image-to-db",
+      "from": "imgbuilder",
+      "to": "db",
+      "label": "draft",
+      "fromSide": "bottom",
+      "toSide": "right"
+    },
+    {
+      "id": "api-to-db",
+      "from": "api",
+      "to": "db",
+      "label": "publish",
+      "variant": "security"
+    },
+    {
+      "id": "attacker-to-gateway",
+      "from": "attacker",
+      "to": "gateway",
+      "label": "ssh",
+      "variant": "emphasis"
+    },
+    {
+      "id": "gateway-to-sessions",
+      "from": "gateway",
+      "to": "sessions",
+      "label": "commands",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sessions-to-driver",
+      "from": "sessions",
+      "to": "driver",
+      "label": "exec",
+      "variant": "emphasis"
+    },
+    {
+      "id": "driver-to-twin",
+      "from": "driver",
+      "to": "twin",
+      "label": "run",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sessions-to-db",
+      "from": "sessions",
+      "to": "db",
+      "label": "evidence",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Safety",
+      "items": [
+        "Env values dropped at discovery",
+        "AI sees only redacted text",
+        "Failed builds never replace the published snapshot"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Containment",
+      "items": [
+        "No network, read-only root, caps dropped",
+        "Limits come from server policy, never from the attacker"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Planned, not built",
+      "items": [
+        "Runtime AI gap-filler",
+        "Dashboard and live feed"
+      ]
+    }
+  ]
+}

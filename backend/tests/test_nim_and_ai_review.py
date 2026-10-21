@@ -134,6 +134,28 @@ def test_falls_back_without_nvext_when_the_server_rejects_it():
     assert "nvext" in bodies[0] and "nvext" not in bodies[1]
 
 
+def test_thinking_can_be_switched_off_and_is_dropped_if_rejected():
+    bodies = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        bodies.append(body)
+        return httpx.Response(422) if "chat_template_kwargs" in body else _ok('{"v": 3}')
+
+    assert _provider(handler, thinking=False).generate_structured(system_policy="s", context={}, output_schema={}) == {"v": 3}
+    assert bodies[0]["chat_template_kwargs"] == {"enable_thinking": False}
+    assert "chat_template_kwargs" not in bodies[1] and "nvext" not in bodies[1]
+
+    bodies.clear()
+    _provider(lambda r: (bodies.append(json.loads(r.content)), _ok('{"v": 1}'))[1]).generate_structured(
+        system_policy="s", context={}, output_schema={})
+    assert "chat_template_kwargs" not in bodies[0]  # default: the model's own setting (builds are unchanged)
+    bodies.clear()
+    _provider(lambda r: (bodies.append(json.loads(r.content)), _ok('{"v": 1}'))[1], guided_json=False).generate_structured(
+        system_policy="s", context={}, output_schema={"type": "object"})
+    assert "nvext" not in bodies[0] and '"json_schema"' in bodies[0]["messages"][1]["content"]  # schema stays in the prompt
+
+
 @pytest.mark.parametrize("resp", [
     httpx.Response(200, json={"choices": []}), httpx.Response(200, json={"nope": 1}),
     httpx.Response(200, json={"choices": [{"message": {"content": None}}]}), httpx.Response(200, text="<html>"),

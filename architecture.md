@@ -16,11 +16,11 @@ An AI-assisted **digital-twin honeypot for Docker environments**. It watches an 
 | 3. Discovery, sanitization, builder | Read-only discovery, regex + AI sanitizer (NVIDIA NIM), generic environment builder, pinned image | **Done and tested** (NIM verified live) |
 | 4. Gateway, persistent shell, running services | SSH front door, per-connection twin, fake HTTP/PostgreSQL/Redis, linked event stream | **Done and tested** (also run by hand with real OpenSSH) |
 | **5. AI synthesis** | AI answers what the fake services can't, validated in code | **Not started.** Only groundwork exists (section 8.5) |
-| 6. Dashboard | React UI, live feed, attack-path tree | Not started |
+| 6. Dashboard | React UI, live feed, session replay, raw-vs-AI inspector, environment tree | **Done** (`frontend/`, section 10.1) |
 | 7. Hardening, deployment, evaluation | Linux host, gVisor/microVM, fingerprint resistance, baselines | Not started |
 | 8. Capstone documentation | Threat model, user guide, evaluation report | Not started |
 
-Note: the second git commit is titled "Phases 0-5 foundation". That is generous: Phases 1 to 4 are implemented; Phase 5 is not.
+Note: the second git commit is titled "Phases 0-5 foundation". That is generous: Phases 1 to 4 were implemented then; Phase 5A (out-of-band AI proposals) was added later (section 10).
 
 **Size:** about 5,250 lines of application code, 3,970 lines of tests, a 905-line in-twin service emulator, 12 database tables, 3 migrations, 17 API routes (16 admin, 1 public).
 
@@ -65,7 +65,8 @@ Three things provide realism, and none of them is trusted to do the others' job:
 | SSH | `asyncssh` |
 | AI | NVIDIA NIM (OpenAI-compatible HTTP, via `httpx`), pluggable `AIProvider` interface; offline `TemplateProvider` fallback |
 | Tests / lint | pytest, ruff |
-| Not yet used | React/TypeScript dashboard, gVisor/Firecracker/Kata, CI |
+| Dashboard | React 19 + TypeScript + Tailwind 4 + Vite (`frontend/`); Vitest + Testing Library; ESLint |
+| Not yet used | gVisor/Firecracker/Kata |
 
 ### 2.4 The base image: `hornet-twin-base:2`
 Every twin is built `FROM` this generic Debian 12 image (303 MB). It knows nothing about any application.
@@ -105,7 +106,7 @@ flowchart TB
   ADMIN --> EV
 ```
 
-**Planes:** observation (discovery), construction (sanitizer, builder), execution (runtime driver, session manager, twin), telemetry (events, audit), presentation (admin API now; dashboard in Phase 6). The AI synthesis plane exists for build-time use only; its run-time use is Phase 5.
+**Planes:** observation (discovery), construction (sanitizer, builder), execution (runtime driver, session manager, twin), telemetry (events, audit), presentation (admin API and the dashboard). The AI synthesis plane is used at build time and, out of band, for run-time gaps (Phase 5A).
 
 ---
 
@@ -151,7 +152,7 @@ hornet_v2/
 | `honeypot_session` | One attacker session: status, runtime id, source IP, times, end reason | End reason: the **first** cause is kept |
 | `execution_request` | One command the attacker typed (stored as a hash) | |
 | `execution_observation` | The real result: stdout, stderr, exit code, flags | **Append-only.** Marked `source: execution` |
-| `ai_synthesis` | AI proposals (Phase 5) | **Append-only.** Exists, currently unused |
+| `ai_synthesis` | AI proposals for `unsupported` requests (Phase 5A), never served | **Append-only.** One row per gap |
 | `session_event` | Timeline: lifecycle, commands, resource access, fs changes, service requests | **Append-only** |
 | `session_overlay` | Per-session file changes (created/modified/deleted) | |
 | `gateway_event` | Door-level events before a twin exists: connections, logins, refusals | **Append-only** |
@@ -258,7 +259,7 @@ Canary secrets planted everywhere in both demo servers appear nowhere in the sto
 - Supports a terminal session (prompt, history, line editing) **and** `ssh host "command"`, preserving the real exit code.
 
 ### 9.2 The persistent shell
-Each command is its own process (so each is separate evidence), wrapped so the next starts in the same directory with the same exported variables. A per-command random marker carries the new state back and is stripped from the output. The evidence records exactly what was typed.
+Each command is its own process (so each is separate evidence), wrapped so the next starts in the same directory with the same exported variables. A per-command random marker carries the new state back and is stripped from the output. The evidence records what was typed (not the wrapper), with credentials redacted (README, *Command storage*).
 
 ### 9.3 Running fake services (inside each twin)
 A single stdlib-only Python program (`twin-image/emulator/hornet_emulator.py`) runs as the system user and serves, each on its own loopback address (`127.0.1.N`), reachable by the original service name:
@@ -282,31 +283,60 @@ Real SSH client against the live server, and real Docker twins built from both d
 
 ---
 
-## 10. Phase 5: AI synthesis (planned, not started)
+## 10. Phase 5: AI synthesis (5A done: out-of-band proposals)
 
 **Goal:** the AI fills gaps only, safely.
 
-**The problem:** the fake services support a limited set of requests. Anything else gets a plain error. A careful attacker notices (an unusual SQL feature, `CLIENT LIST` in Redis, an API route that doesn't exist).
+**The problem:** the fake services support a limited set of requests. Anything else gets a controlled error and is
+flagged `unsupported` (PostgreSQL syntax/extended protocol, unknown Redis commands, unknown HTTP routes/tables/methods).
 
-**Routing (in order):**
-1. Real command output: used unchanged. The AI never touches shell output.
-2. A fake service knows the answer: use the deterministic answer.
-3. Otherwise: ask the AI for a response in a strict JSON format, validate it in code, return it; on failure or timeout fall back to the existing controlled error.
+**What 5A does.** After a command, the orchestrator hands each `unsupported` service event to a background worker
+(`ai/synthesis.py`). The worker asks the model for a strict-JSON answer, validates it in code and stores one
+`ai_synthesis` row per gap. **The answer is never sent to the attacker**: they already got the controlled error.
+Investigators see it next to the raw evidence, labelled "AI proposal, not served". Serving it live (5B: a bridge
+through `RuntimeDriver`) is optional and not built.
 
-**Planned components**
-| Component | Job |
-|---|---|
-| Context builder | Minimal sanitized context (schema names, a few recent events); attacker text labelled untrusted |
-| Router | Decides real / fixture / AI |
-| Output validator | JSON schema, referenced tables/columns/files exist, only whitelisted state changes, consistent with existing data, no secrets or real-looking addresses |
-| Bridge | The services are in a twin with no network, so they can't call the AI. They publish "I can't answer this" and wait briefly; the orchestrator calls the model and sends the answer back |
-| Storage | The real request and the AI proposal stored as separate records (`ai_synthesis`), with an `ai_policy_version` |
+**Routing:** real command output (unchanged; the AI never touches shell output) → the fake service's deterministic
+answer → only for `unsupported` gaps, an AI proposal.
 
-**Design constraints**
-- **Latency is the main risk.** The currently configured model is a slow reasoning model (7 to 17 s per call), fine for builds but too slow for live use. Plan: a faster non-reasoning model, a hard timeout of about 2 to 3 s, caching of repeated questions, and the plain-error fallback.
-- With the provider disabled, the whole system must still work.
+| Component | File | Job |
+|---|---|---|
+| Context builder | `ai/synthesis_context.py` | Table/column names only, the request with credentials redacted, control characters and injection phrasing stripped, capped, labelled untrusted; up to 5 earlier gaps |
+| Validator | `ai/synthesis_validator.py` | Strict per-protocol shape; no tables/columns/API resources the snapshot lacks; writes (INSERT, SET, POST ...) may only get errors; real SQLSTATEs only; no secret-like strings, only example email domains and documentation IPs; size caps |
+| Worker | `ai/synthesis.py` | Background threads; hard per-call timeout; per-session call cap; cache of repeated requests; statuses `accepted` / `rejected` / `timeout` / `fallback` |
+| Storage | `ai_synthesis` | `response_metadata`: source `ai`, `served: false`, redacted request, proposal (accepted only), reason, provider, policy version, latency. `execution_observation` is never touched. The session records `ai_policy_version` |
+| API | `GET /sessions/{id}/executions` | Each command's `ai_proposals`, in a separate list from the evidence |
 
-**Exit criteria:** an AI-consistency suite passes (prompt injection, invented files, inconsistent records, secret leakage), and the system works with the AI off.
+**Settings:** `HORNET_AI_SYNTH_ENABLED` (default off: then nothing changes), `HORNET_AI_SYNTH_TIMEOUT_S` (3),
+`HORNET_AI_SYNTH_MAX_PER_SESSION` (20), `HORNET_NIM_SYNTH_MODEL` (a fast non-reasoning model; builds keep
+`HORNET_NIM_MODEL`). With `HORNET_AI_PROVIDER=template` every gap is recorded as `fallback` (no model).
+
+**Latency:** the attacker never waits for the model (the work happens after the reply). Default model
+`nvidia/nemotron-3-super-120b-a12b` with thinking off and without NVIDIA's guided decoding: median about 1 s, p95
+about 2.3 s, 17 to 20 of 20 accepted within the 3 s limit (the rest: free-tier rate limits). Both switches matter:
+thinking on took about 9 s per call, guided decoding about 11 s. Details: `docs/results/synthesis_latency.md`.
+
+**Tests:** `tests/ai_consistency/` (prompt injection, invented tables/columns/resources, inconsistent records and
+state changes, secret and real-world data, malformed answers, provider errors, timeouts), `test_synthesis.py`
+(wiring, cache, cap, API, factory) and a real-Docker test through the SSH gateway.
+
+### 10.1 Phase 6: the dashboard (done)
+
+`frontend/`: React + TypeScript + Tailwind, built with Vite; the dev server proxies `/api` (REST and WebSocket) to the
+API, both on loopback. Views: overview with live feed, sessions, session replay with the execution inspector,
+environment tree (base / visited / overlay), environments (build, validate, publish).
+
+| Piece | Where | Notes |
+|---|---|---|
+| Tree state | `GET /sessions/{id}/tree-state` | base nodes + visits (events linked to nodes) + overlay (latest operation per path, new files included) |
+| Live feed | `WS /api/v1/ws/events` (`api/live.py`) | key in the first message, 4401 if wrong, 4403 for a foreign Origin; polls the database every second, so it sees events written by any process; audited (`live.connect`) |
+| CORS | `main.py` | only `HORNET_DASHBOARD_ORIGINS`; no cookies; `*` fails startup |
+| Safe rendering | `frontend/src/components/AttackerText.tsx`, `lib/text.ts` | text nodes only; ESLint forbids `dangerouslySetInnerHTML`, `innerHTML`, `insertAdjacentHTML`, `document.write`, `eval` |
+| Raw vs AI | `ExecutionInspector.tsx` | two separate panels; tested |
+
+**Tests:** `backend/tests/test_dashboard_api.py` (tree state, live feed auth/origin/delivery under 2 s, no
+duplicates, CORS); `frontend/src/test/` (XSS payloads through every component, raw/AI separation, replay of a
+session recorded through the real gateway by `scripts/seed_demo_session.py`).
 
 ---
 
@@ -326,6 +356,8 @@ All routes are under `/api/v1`. Everything except `/health` needs `X-API-Key`.
 | `GET /sessions`, `GET /sessions/{id}`, `GET /sessions/{id}/events` | Sessions and their timelines |
 | `GET /gateway/events` | Connections, logins (filter by type or IP) |
 | `GET /analytics/overview`, `GET /audit` | Counts; administrator audit log |
+| `GET /sessions/{id}/executions`, `GET /sessions/{id}/overlay`, `GET /sessions/{id}/tree-state` | Commands with raw output and separate AI proposals (audited); file changes; tree with visited/overlay markers |
+| `WS /ws/events` | Live feed for the dashboard (key in the first message) |
 
 OpenAPI docs: `/docs`. Attacker-supplied text inside events must always be escaped when rendered.
 
@@ -340,6 +372,7 @@ OpenAPI docs: `/docs`. Attacker-supplied text inside events must always be escap
 | Discovery / build | `DISCOVERY_ALLOWED_PROJECTS`, `BUILD_DIR` |
 | AI | `AI_PROVIDER` (template/nim), `NVIDIA_API_KEY`, `NIM_MODEL`, `NIM_BASE_URL`, `NIM_TIMEOUT_S`, `NIM_MAX_TOKENS`, `AI_SANITIZER_MODE` (required/advisory/off) |
 | Gateway | `GATEWAY_ENABLED`, `GATEWAY_HOST`, `GATEWAY_PORT`, `GATEWAY_HOST_KEY_PATH`, `GATEWAY_SERVER_VERSION`, `GATEWAY_ACCEPT_AFTER`, `GATEWAY_WEAK_PASSWORDS`, `GATEWAY_LOG_PASSWORDS`, `GATEWAY_MAX_CONNECTIONS_PER_IP`, `GATEWAY_LOGIN_TIMEOUT_S` |
+| Recorded data | `STORE_RAW_COMMANDS` (default off), `RETENTION_DAYS` (default 30) |
 
 Run instructions and things to try are in `README.md`.
 
@@ -398,7 +431,7 @@ Run instructions and things to try are in `README.md`.
 
 | Item | Detail |
 |---|---|
-| Phase 5 not built | Unsupported requests still get a plain error |
+| Phase 5B not built | The attacker still gets the controlled error; the AI proposal is only stored (5A) |
 | Phase 0 incomplete | No CI, no `scripts/dev.py`, no pre-commit/mypy (AGENTS.md lists them) |
 | Linux / CI untested | Everything was verified on Windows 11 only |
 | Fingerprinting | See section 13.2; a Phase 7 item |
@@ -412,7 +445,7 @@ Run instructions and things to try are in `README.md`.
 ## 16. What comes next
 
 1. **Phase 5: AI synthesis** (section 10). Start by choosing a fast model and defining the request/response bridge.
-2. **Phase 6: Dashboard.** React + TypeScript; live feed; environment tree with base / visited / overlay states; session timeline; raw-vs-AI evidence panel; XSS-safe rendering of attacker text.
+2. **Phase 6: Dashboard.** Done (section 10.1).
 3. **Phase 7: Hardening and evaluation (Linux).** gVisor or a microVM; fingerprint resistance; escape/egress suites; comparison against Cowrie, an LLM-only shell and a real Ubuntu control; an AI-attacker detection test.
 4. **Phase 8: Capstone documents.** Threat model, user guide, evaluation report, demo script.
 

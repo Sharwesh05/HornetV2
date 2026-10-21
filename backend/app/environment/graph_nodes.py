@@ -48,5 +48,7 @@ def plan_nodes(plan: EnvPlan) -> list[PlanNode]:
     for d in plan.databases:
         nodes.append(PlanNode(f"/databases/{d.name}", "/databases", "database", None, None, "synthetic-sensitive", {
             "virtual": True, "engine": d.engine, "service": d.service, "owner": d.owner,
-            "tables": {t: len(rows) for t, rows in d.tables.items()}}))
+            "tables": {t: len(rows) for t, rows in d.tables.items()},
+            # column names only (no values): the AI synthesis context needs the schema, not the data
+            "columns": {t: list(rows[0]) for t, rows in d.tables.items() if rows}}))
     return nodes

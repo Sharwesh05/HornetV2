@@ -58,7 +58,8 @@ def test_lifecycle_and_evidence(db, published, session_factory):
     with session_factory() as v:
         assert v.get(HoneypotSession, sess.id).status == "active"
         req = v.scalars(select(ExecutionRequest)).one()
-        assert req.input_hash != "echo hello" and len(req.input_hash) == 64  # hash, never the raw input
+        assert len(req.input_hash) == 64 and req.input_text == "echo hello"  # redacted text (nothing to redact here)
+        assert req.input_raw is None  # the raw input is opt-in
         obs = v.scalars(select(ExecutionObservation)).one()
         assert obs.result_metadata["source"] == "execution" and obs.result_metadata["stdout"] == "hello\n"
         assert v.scalars(select(SessionOverlay)).one().operation == "created"
