@@ -19,8 +19,9 @@ import threading
 import time
 import uuid
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -58,10 +59,10 @@ class SynthesisWorker:
         self._jobs = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="hornet-synth")
         self._calls = ThreadPoolExecutor(max_workers=workers * 2, thread_name_prefix="hornet-synth-call")
         self._lock = threading.Lock()
-        self._pending: set = set()
+        self._pending: set[Future[None]] = set()
         self._calls_made: dict[uuid.UUID, int] = {}
         self._recent: dict[uuid.UUID, list[GapRequest]] = {}
-        self._cache: OrderedDict[tuple, tuple[str, str, dict | None]] = OrderedDict()
+        self._cache: OrderedDict[tuple[Any, ...], tuple[str, str, dict[str, Any] | None]] = OrderedDict()
         self._schemas: dict[uuid.UUID, dict[str, list[str]]] = {}
 
     @property
@@ -70,7 +71,7 @@ class SynthesisWorker:
 
     # ---- public --------------------------------------------------------------------------------------------
     def submit(self, session_id: uuid.UUID, snapshot_id: uuid.UUID, request_id: uuid.UUID,
-               events: list[tuple[uuid.UUID, dict]]) -> None:
+               events: list[tuple[uuid.UUID, dict[str, Any]]]) -> None:
         """Queue the unsupported service events of one command. Returns at once."""
         for event_id, event in events:
             fut = self._jobs.submit(self._safe_process, session_id, snapshot_id, request_id, event_id, event)
@@ -100,22 +101,23 @@ class SynthesisWorker:
         self._calls.shutdown(wait=False, cancel_futures=True)
 
     # ---- one gap ------------------------------------------------------------------------------------------
-    def _done(self, fut) -> None:
+    def _done(self, fut: Future[None]) -> None:
         with self._lock:
             self._pending.discard(fut)
 
-    def _safe_process(self, *args) -> None:
+    def _safe_process(self, session_id: uuid.UUID, snapshot_id: uuid.UUID, request_id: uuid.UUID,
+                      event_id: uuid.UUID, event: dict[str, Any]) -> None:
         try:
-            self.process(*args)
+            self.process(session_id, snapshot_id, request_id, event_id, event)
         except Exception:  # noqa: BLE001  (a synthesis failure must never affect a session)
             log.exception("synthesis job failed")
 
     def process(self, session_id: uuid.UUID, snapshot_id: uuid.UUID, request_id: uuid.UUID,
-                event_id: uuid.UUID, event: dict) -> str:
+                event_id: uuid.UUID, event: dict[str, Any]) -> str:
         """Handle one unsupported service event synchronously; writes one ai_synthesis row; returns its status."""
         started = time.monotonic()
         gap = gap_from_event(event)
-        meta: dict = {"source": "ai", "served": False, "event_id": str(event_id), "provider": self.provider_label,
+        meta: dict[str, Any] = {"source": "ai", "served": False, "event_id": str(event_id), "provider": self.provider_label,
                       "policy_version": self.policy_version, "proto": event.get("proto"),
                       "service": event.get("service"), "cache": False}
         if gap is None:
@@ -189,8 +191,8 @@ class SynthesisWorker:
             self._schemas[snapshot_id] = schema
         return schema
 
-    def _write(self, request_id: uuid.UUID, status: str, meta: dict, *, reason: str = "",
-               proposal: dict | None = None, started: float) -> str:
+    def _write(self, request_id: uuid.UUID, status: str, meta: dict[str, Any], *, reason: str = "",
+               proposal: dict[str, Any] | None = None, started: float) -> str:
         assert status in STATUSES
         meta = {**meta, "reason": reason, "proposal": proposal,
                 "latency_ms": int((time.monotonic() - started) * 1000)}

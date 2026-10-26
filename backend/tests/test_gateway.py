@@ -439,8 +439,9 @@ def test_closing_the_gateway_leaves_no_twins_behind(tmp_path, session_factory, d
 def test_gateway_must_stay_on_loopback_outside_prod():
     with pytest.raises(ValueError):
         Settings(admin_api_key="x" * 20, gateway_enabled=True, gateway_host="0.0.0.0", _env_file=None)  # noqa: S104
-    Settings(admin_api_key="x" * 20, gateway_enabled=True, gateway_host="0.0.0.0", env="prod",         # noqa: S104
-             database_url="postgresql://x", _env_file=None)
+    Settings(admin_api_key="x" * 40, gateway_enabled=True, gateway_host="0.0.0.0", env="prod",         # noqa: S104
+             database_url="postgresql://x", dashboard_origins="https://hornet.example.org", retention_auto=True,
+             _env_file=None)
 
 
 # ---- integration with the application -----------------------------------------------------------------------------

@@ -18,7 +18,7 @@ class Finding:
 @dataclass(frozen=True)
 class _Rule:
     kind: str
-    regex: re.Pattern
+    regex: re.Pattern[str]
     group: int = 0  # which group holds the sensitive part
 
 

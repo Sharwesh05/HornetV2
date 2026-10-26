@@ -2,8 +2,33 @@
 
 A honeypot for Docker environments. It observes an authorized real server, builds a sanitized and versioned synthetic copy (the *digital twin*), and runs attacker sessions inside isolated, disposable Linux environments. Real command execution gives realistic output. AI fills in only the gaps, such as fake services and unfamiliar application behavior. Every session is recorded and linked to a precomputed environment graph.
 
-> **Core principle:** real server for observation → AI-assisted environment construction → isolated twin for execution → AI-assisted response synthesis → attack analytics.
+> **Core principle:** real server for observation → AI-assisted environment construction → isolated twin for execution → AI suggestions for the gaps, recorded for investigators (never served to attackers) → attack analytics.
 > The production server is never the execution target for attacker input.
+
+## Start here
+
+| I want to... | Read |
+|---|---|
+| Install, run and use it (Linux; Windows notes) | [docs/user-guide.md](docs/user-guide.md) |
+| Present it | [docs/demo-script.md](docs/demo-script.md) |
+| Understand what is built and how | [architecture.md](architecture.md), then [READING_GUIDE.md](READING_GUIDE.md) for the code |
+| Know what it protects against, and what not | [docs/threat-model.md](docs/threat-model.md), [docs/limitations.md](docs/limitations.md) |
+| See the measurements and tests | [docs/evaluation-report.md](docs/evaluation-report.md), [docs/results/](docs/results/) |
+
+```bash
+python -m scripts.dev setup && python -m scripts.dev ui-setup     # once
+python -m scripts.dev demo-up                                     # Docker running: base image + demo servers
+python -m scripts.dev api                                         # terminal 1: API + SSH door (127.0.0.1:2222)
+python -m scripts.dev ui                                          # terminal 2: dashboard (http://127.0.0.1:5173)
+```
+
+**Status:** Phases 0 to 8 are done (5A for AI synthesis). Phase H (hardening: gVisor, escape suite, PostgreSQL
+guards, `prod` profile, deployment design) is done and awaiting approval. 604 backend and 64 dashboard tests pass.
+Nothing is exposed beyond one machine until Phase H is approved.
+
+> The sections from *Goals* to *Capstone scope* below are the **original design**. Where the build differs, notably
+> that AI answers are recorded out of band and never served to attackers, that there is one hardened-Docker runtime,
+> and that public deployment is not done, [architecture.md](architecture.md) describes what is actually built.
 
 ---
 
@@ -457,7 +482,9 @@ The full design is larger than a single capstone. Suggested cut:
 
 ## Related work and novelty
 
-Full report: [reports/LLM honeypot digital twin prior work.md](reports/LLM%20honeypot%20digital%20twin%20prior%20work.md). Raw notes: [research_notes/LLM honeypot digital twin prior work/](research_notes/LLM%20honeypot%20digital%20twin%20prior%20work/). Per-paper and per-product limitations: [Research and Limitations.xlsx](Research%20and%20Limitations.xlsx).
+Full report and raw notes: `reports/LLM honeypot digital twin prior work.md` and `research_notes/` (kept outside this repository). Per-paper and per-product limitations: [Research and Limitations.xlsx](Research%20and%20Limitations.xlsx).
+
+The `reports/` and `research_notes/` folders are not part of this repository. Key references were re-checked against OpenAlex/arXiv on 2026-10-21 in [docs/evaluation-report.md](docs/evaluation-report.md) (section 8); note that "HoneyLLM" names two different 2024 papers.
 
 No single published paper or product matches the whole pipeline, but most stages have a partial precedent. Search was limited, so "not found" is not proof of absence.
 
@@ -480,33 +507,27 @@ No single published paper or product matches the whole pipeline, but most stages
 - Support non-interactive `ssh host cmd` sessions: 99.23% of authenticated sessions in one study were non-interactive.
 - Measure secret leakage, escape and egress risk; prior work rarely reports them.
 
-## Quick start (Phase 1: management foundation)
+## Quick start
 
-Works on Windows, Linux and macOS. Needs Python 3.12+ (tested on 3.14). Docker is only needed for the Postgres and demo-server parts.
-
-```bash
-python -m venv .venv
-.venv/Scripts/python -m pip install -e ".[dev]"      # Windows; use .venv/bin/python on Linux/macOS
-```
-
-Create a `.env` from `.env.example` and set `HORNET_ADMIN_API_KEY` (16+ chars; placeholders are rejected at startup). Keep it in the repo root: it is found from any working directory, and a `.env` in the current directory overrides it. (On Linux/macOS use `.venv/bin/python` instead of `.venv/Scripts/python` below. The default SQLite file `hornet_dev.db` lives in the repo root, for both the API and alembic.)
+Needs Python 3.12+, Docker and Node 20+ (Linux, or Windows with Docker Desktop and WSL2). The full walkthrough is the
+[user guide](docs/user-guide.md); the commands are the same on both systems.
 
 ```bash
-cd backend
-../.venv/Scripts/python -m alembic upgrade head
-../.venv/Scripts/python -m uvicorn app.main:app --port 8000
+python -m scripts.dev setup          # .venv, packages, .env with a random admin key
+python -m scripts.dev safety         # the demo safety settings (refuses unsafe ones)
+python -m scripts.dev test           # tests (Docker tests run when Docker and the demo servers are up)
+python -m scripts.dev lint
 ```
 
-API docs at http://127.0.0.1:8000/docs (click **Authorize** and paste the key). With curl send the key as `X-API-Key`. Tests and lint:
+`.env` lives in the repo root and is found from any working directory; the default SQLite file `hornet_dev.db` is
+also in the repo root. API docs are at http://127.0.0.1:8000/docs (click **Authorize** and paste the key).
 
-```bash
-.venv/Scripts/python -m pytest
-.venv/Scripts/python -m ruff check backend --exclude backend/migrations
-```
+**Management plane in Docker (Postgres + API):** set `HORNET_ADMIN_API_KEY` and `POSTGRES_PASSWORD` in `.env`, then
+`python -m scripts.dev up`. That container has no Docker access by design, so twins need the API run on the host.
 
-**Management plane in Docker (Postgres + API):** set `HORNET_ADMIN_API_KEY` and `POSTGRES_PASSWORD` in `.env`, then `docker compose up --build`.
-
-**Demo "main server" (the real server Hornet will observe):** `docker compose -f main-server/docker-compose.yml up -d --build` starts a fake shop (Flask web app, Postgres, Redis) on http://127.0.0.1:8080. All data and secrets in it are fake canaries so the Phase 3 sanitizer can be tested against known values.
+**Demo servers (the "real" servers Hornet observes):** `python -m scripts.dev demo-up` starts a fake shop
+(`shop-prod`: web app, Postgres, Redis on http://127.0.0.1:8080) and a fake help desk (`helpdesk-staging`). All data
+and secrets in them are fake canaries, so tests can prove the sanitizer removes them.
 
 ## Phase 2: generic twin runtime
 
@@ -522,7 +543,7 @@ admin/gateway -> SessionManager.execute(session, input) -> RuntimeDriver.exec() 
 ```
 
 - **Generic base image:** `twin-image/Dockerfile` (Debian, no setuid bits, attacker uid 1000, PID 1 owned by a different uid). Phase 3 builds per-snapshot images `FROM` it. Build once: `docker build -t hornet-twin-base:2 twin-image`.
-- **Driver interface:** `backend/app/runtime/driver.py`. Today: `HardenedDockerDriver` (Windows and Linux). Later drivers (gVisor, Kata, Firecracker) plug in without touching the orchestrator.
+- **Driver interface:** `backend/app/runtime/driver.py`. `HardenedDockerDriver` (runc; Windows and Linux) and `GVisorDriver` (`runsc`, Linux; `HORNET_RUNTIME_DRIVER=gvisor`). Kata or Firecracker would plug in the same way.
 - **Hardening applied to every twin:** no network, no mounts, no Docker socket, read-only root filesystem with size-limited tmpfs for `/tmp`, `/var/tmp` and the home directory, all capabilities dropped, `no-new-privileges`, default seccomp, memory/CPU/pids/open-file limits, no logging, `--init`.
 - **Policy:** `backend/app/runtime/policy.py`. Timeouts, output caps and resource limits come from server settings (`HORNET_TWIN_*`, `HORNET_MAX_ACTIVE_SESSIONS`, `HORNET_SESSION_TTL_S`, `HORNET_IDLE_TTL_S`) and are bounded by hard maximums, so a bad config cannot silently weaken isolation. Attackers cannot change them.
 - **Lifecycle:** requested, provisioning, ready, active, quiescing, destroyed, or failed. Idle and over-age sessions are reaped; a crashed orchestrator's orphan twins are removed on the next start; shutdown destroys all twins.
@@ -536,8 +557,8 @@ Run the isolation tests (need Docker and the base image; they are skipped otherw
 ```
 
 **Limits of Phase 2 (by design, for later phases)**
-- Each command is a separate process: files persist across commands, but the working directory and shell variables do not. A persistent PTY shell arrives with the Phase 4 gateway.
-- Hardened Docker shares the host kernel (on Windows, the Docker Desktop VM's kernel). It is weaker than gVisor or a microVM, so do not expose it to the internet. Phase 7 moves the runtime to a dedicated Linux host.
+- Each command is a separate process. Phase 4 added the persistent shell (working directory and exported variables carry over); a real PTY for interactive programs is still not available.
+- Hardened Docker shares the host kernel (on Windows, the Docker Desktop VM's kernel). It is weaker than gVisor or a microVM, so do not expose it to the internet. For a server, use the gVisor driver on a dedicated Linux host (`deployment/README.md`).
 - The orchestrator talks to Docker directly, so run the API on the host (not inside the compose `api` container, which has no Docker access by design) while developing this phase.
 - A file an attacker hides inside a directory they `chmod 000` is not visible to the filesystem observer.
 - A fork bomb cannot hurt the host (cgroup limits), but it leaves the twin unable to start processes. The manager
@@ -646,7 +667,7 @@ curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" -d '{"sour
   (it flagged a demo label and part of a healthcheck as internal hosts), which are harmless but show it is not exact.
 - The deterministic layer cannot know about names or internal hostnames; only the AI review catches those. In
   `off`/`template` mode such strings can remain in the stored (sanitized) profile.
-- Twin services are files, not running processes (`ps` shows only `sleep`); running services come in Phase 4.
+- Phase 4 added running fake services (HTTP, PostgreSQL, Redis); other roles (e.g. MySQL) exist as files only.
 - Discovery sees names, images, ports, mounts and `docker diff` paths, not file contents or env values, so
   generated configs are plausible rather than copies.
 - Hostname and `/etc/hosts` are set by Docker at runtime. The attacker account is always `user`.
@@ -698,7 +719,8 @@ to the attacker. The whole flow was also run with a real OpenSSH 10.3 client.
 - The login name is cosmetic: whatever username is tried, the shell is the unprivileged `user` account (`id` shows uid 1000).
 - Fingerprinting: the SSH version banner imitates OpenSSH but the handshake is asyncssh; `uname -r` shows the Docker Desktop kernel
   (`...microsoft-standard-WSL2` on this machine); `ps` shows the emulator process; the emulator lives under `/usr/share/hornet`.
-  A determined attacker or an AI pentester can tell. These are Phase 7 hardening items.
+  A determined attacker or an AI pentester can tell. Stealth is out of scope for the demo; see `docs/limitations.md`.
+  Under gVisor the tells differ (`uname -r` is `4.4.0`, `dmesg` names gVisor).
 - Emulated: HTTP, PostgreSQL (simple-query protocol, md5 auth) and Redis only. MySQL and other services exist as files only; drivers
   that need PostgreSQL's extended protocol (prepared statements) get a clean error.
 - A restart of the API destroys all twins and sessions are not resumable. Each connection is a new twin by design; an attacker who
@@ -763,4 +785,9 @@ reusing). So it is stored with safeguards:
   files, processes and fake-service state, canary secrets absent from every model prompt, log and table, a startup
   check that refuses unsafe demo settings (`python -m scripts.dev safety`), runtime measurements
   (`docs/results/evaluation.md`) and the limitations table (`docs/limitations.md`).
-- **Next:** Phase 8, documentation and the final presentation. Phase H (full hardening) follows the presentation.
+- **Phase 8 (documentation): done.** User guide, demo script (rehearsed end to end), threat model, evaluation
+  report with re-checked related work; architecture rewritten to match the build. See *Start here*.
+- **Phase H (hardening): done, awaiting approval.** gVisor driver; escape and abuse suite on runc and gVisor;
+  concurrency, restart and reaper tests on real Docker; PostgreSQL 16 migrations both ways with database triggers;
+  audited admin console and a strict `prod` profile (secret files, automatic retention); mypy; `deployment/`.
+  Results: [docs/threat-model.md](docs/threat-model.md) section 7.

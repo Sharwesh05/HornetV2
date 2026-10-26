@@ -2,12 +2,14 @@
 
 Evidence, AI and event tables are append-only (app/immutability.py guards every ORM flush). Retention still has
 to remove old sessions, so this module deletes with bulk SQL statements, which do not go through a flush, and
-writes a `retention.purge` audit event with the counts. Live sessions are never purged, nor is anything
+writes a `retention.purge` audit event with the counts. On PostgreSQL the database triggers (migration 0005)
+enforce the same rules and admit this purge only through a transaction-local flag. Live sessions are never purged, nor is anything
 belonging to environment snapshots.
 """
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import CursorResult, Delete, delete, or_, select, text
 from sqlalchemy.orm import Session
 
 from app import services
@@ -39,9 +41,13 @@ def purge(db: Session, older_than_days: int, actor: str, now: datetime | None = 
     requests = select(ExecutionRequest.id).where(ExecutionRequest.session_id.in_(session_ids))
 
     counts: dict[str, int] = {}
+    if db.get_bind().dialect.name == "postgresql":
+        # the database triggers (migration 0005) let DELETEs through only with this flag, for this transaction only
+        db.execute(text("SET LOCAL hornet.retention_purge = 'on'"))
 
-    def run(name: str, stmt) -> None:
-        counts[name] = db.execute(stmt.execution_options(synchronize_session=False)).rowcount or 0
+    def run(name: str, stmt: Delete) -> None:
+        result = cast(CursorResult[Any], db.execute(stmt.execution_options(synchronize_session=False)))
+        counts[name] = result.rowcount or 0
 
     # children before parents, so foreign keys hold on PostgreSQL
     run("ai_synthesis", delete(AiSynthesis).where(AiSynthesis.request_id.in_(requests)))

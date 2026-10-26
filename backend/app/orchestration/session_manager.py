@@ -10,7 +10,7 @@ import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -33,6 +33,7 @@ from app.orchestration.linker import touched_paths
 from app.orchestration.shell_state import ShellState
 from app.runtime import fsdiff
 from app.runtime.driver import (
+    ExecResult,
     FsEntry,
     ImageMismatch,
     RuntimeDriver,
@@ -94,7 +95,7 @@ class ExecOutcome:
     truncated: bool
     duration_ms: int
     runtime_killed: bool
-    fs_changes: list[dict]
+    fs_changes: list[dict[str, Any]]
     cwd: str = "/home/user"
     service_events: int = 0
 
@@ -160,7 +161,7 @@ class SessionManager:
         return cached
 
     def _ingest_service_events(self, db: Session, sess: HoneypotSession, live: _Live,
-                               gaps: list[tuple[SessionEvent, dict]] | None = None) -> int:
+                               gaps: list[tuple[SessionEvent, dict[str, Any]]] | None = None) -> int:
         """Pull what the in-twin fake services logged and store it, linked to the service's graph node. Events the
         fake services flagged `unsupported` are also appended to `gaps` (for AI synthesis)."""
         if not live.has_services:
@@ -355,14 +356,19 @@ class SessionManager:
                     if rc is not None:
                         result.exit_code = rc
 
-                changes: list[dict] = []
-                processes: list[dict] = []
+                changes: list[dict[str, Any]] = []
+                processes: list[dict[str, Any]] = []
                 if result.runtime_killed:
                     self._fail(db, sess, live, "limit exceeded: runtime killed")
                 else:
                     # `docker top` runs on the host (no fork inside the twin), so it works even when the twin is wedged
                     processes = self.driver.processes(live.runtime_id)
-                    if self._exhausted(result, processes):
+                    if not self.driver.is_running(live.runtime_id):
+                        # gVisor ends the whole sandbox when a fork bomb reaches the pids limit (runc keeps it
+                        # running but full, see _exhausted). Either way the twin is gone: a limit violation.
+                        result.runtime_killed = True
+                        self._fail(db, sess, live, "limit exceeded: runtime stopped")
+                    elif self._exhausted(result, processes):
                         # e.g. a fork bomb: the host is safe (cgroup limits), but the twin can no longer start
                         # processes, so it is unusable. Treat it as a limit violation, not as a normal session.
                         result.runtime_killed = True
@@ -373,7 +379,9 @@ class SessionManager:
                             changes = fsdiff.diff(live.fs, after)
                             live.fs = after
                         except (RuntimeKilled, RuntimeUnavailable):
-                            self._fail(db, sess, live, "observer failed")
+                            stopped = not self.driver.is_running(live.runtime_id)  # the sandbox died meanwhile
+                            result.runtime_killed = result.runtime_killed or stopped
+                            self._fail(db, sess, live, "limit exceeded: runtime stopped" if stopped else "observer failed")
 
                 # Raw execution evidence: written by the observer, never by the AI.
                 db.add(ExecutionObservation(
@@ -405,7 +413,7 @@ class SessionManager:
                                         meta={"path": ch["path"], "operation": ch["operation"], "basis": "filesystem-diff",
                                               "request_id": str(req.id)}))
                 service_events = 0
-                gaps: list[tuple[SessionEvent, dict]] = []
+                gaps: list[tuple[SessionEvent, dict[str, Any]]] = []
                 if not result.runtime_killed and sess.status != S.failed.value:
                     try:
                         service_events = self._ingest_service_events(db, sess, live, gaps)
@@ -432,7 +440,7 @@ class SessionManager:
                     cwd=live.shell.cwd, service_events=service_events,
                 )
 
-    def _exhausted(self, result, processes: list[dict]) -> bool:
+    def _exhausted(self, result: ExecResult, processes: list[dict[str, Any]]) -> bool:
         """True when the twin has run out of process slots: the wrapper cannot fork, or the table is full."""
         fork_failed = result.exit_code == 125 and "fork" in result.stderr.lower()
         return fork_failed or len(processes) >= self.policy.pids - 1

@@ -37,7 +37,8 @@ class Synth:
 
     # -- people and network --------------------------------------------------------------------
     def people(self, n: int) -> list[Person]:
-        out, used = [], set()
+        out: list[Person] = []
+        used: set[tuple[str, str]] = set()
         while len(out) < n:
             f, last = self.rng.choice(FIRST), self.rng.choice(LAST)
             if (f, last) in used:

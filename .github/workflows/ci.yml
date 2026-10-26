@@ -39,15 +39,34 @@ jobs:
           python-version: "3.12"
       - name: setup
         run: python -m scripts.dev setup
+      - name: install gVisor (runsc) from the official apt repository and register it with Docker
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://gvisor.dev/archive.key | sudo gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" \
+            | sudo tee /etc/apt/sources.list.d/gvisor.list
+          sudo apt-get update && sudo apt-get install -y runsc
+          sudo runsc install && sudo systemctl restart docker
+          docker run --rm --runtime=runsc hello-world
       - name: start the twin base image and both demo servers
         run: python -m scripts.dev demo-up
-      - name: full test suite, including real-Docker isolation and gateway tests
-        # a skipped Docker test here means the environment is broken, not that it passed: fail on any skip
+      - name: full test suite (runc), including real-Docker isolation, hardening, gateway and PostgreSQL tests
+        # a skipped Docker test here means the environment is broken, not that it passed: fail on any skip that is
+        # not a documented, accepted exception (their reasons start with "accepted:")
         shell: bash
         run: |
           set -o pipefail
           python -m scripts.dev test -rs | tee test.log
-          if grep -q "SKIPPED" test.log; then echo "::error::tests were skipped in the Docker job"; exit 1; fi
+          if grep "SKIPPED" test.log | grep -vq "accepted:"; then echo "::error::tests were skipped in the Docker job"; exit 1; fi
+      - name: the real-Docker tests again, with every twin under gVisor
+        shell: bash
+        env:
+          HORNET_TEST_RUNTIME: gvisor
+        run: |
+          set -o pipefail
+          python -m scripts.dev test -rs -m docker | tee gvisor.log
+          if grep "SKIPPED" gvisor.log | grep -vq "accepted:"; then echo "::error::tests were skipped under gVisor"; exit 1; fi
       - name: stop demo servers and remove leftover twins
         if: always()
         run: python -m scripts.dev demo-down

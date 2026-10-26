@@ -2,7 +2,7 @@
 
     python -m scripts.dev setup        create .venv, install the project, create .env (with a random admin key)
     python -m scripts.dev test [args]  run pytest (extra args are passed through)
-    python -m scripts.dev lint         ruff
+    python -m scripts.dev lint         ruff + mypy
     python -m scripts.dev migrate      apply database migrations
     python -m scripts.dev api          run the API (and the SSH gateway if HORNET_GATEWAY_ENABLED=true)
     python -m scripts.dev up / down    start / stop the management plane compose stack (Postgres + API container)
@@ -81,6 +81,7 @@ def test(args) -> None:
 
 def lint(_args) -> None:
     run([python(), "-m", "ruff", "check", "backend", "scripts", "--exclude", "backend/migrations"])
+    run([python(), "-m", "mypy"])  # strict on sanitization, ai and orchestration (pyproject.toml)
 
 
 def migrate(_args) -> None:
@@ -176,7 +177,7 @@ def main(argv: list[str] | None = None) -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     for name, fn, helptext in (
         ("setup", setup, "create .venv, install, create .env"),
-        ("lint", lint, "ruff check"),
+        ("lint", lint, "ruff check and mypy"),
         ("migrate", migrate, "alembic upgrade head"),
         ("up", up, "start the management compose stack"),
         ("down", down, "stop the management compose stack"),

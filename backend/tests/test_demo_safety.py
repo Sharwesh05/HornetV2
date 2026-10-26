@@ -46,8 +46,9 @@ def test_every_limit_has_a_demo_ceiling_equal_to_its_default():
 
 
 def test_prod_is_a_separate_deliberate_profile():
-    # outside the demo profile these choices are possible, but prod has its own rules (no SQLite, Phase H review)
+    # outside the demo profile these choices are possible, but prod has its own rules (tests: test_prod_profile.py)
     with pytest.raises(ValidationError):
-        Settings(**BASE, env="prod")  # still SQLite
-    s = Settings(**BASE, env="prod", database_url="postgresql+psycopg://h:p@db/h", store_raw_commands=True)
+        Settings(**BASE, env="prod")  # SQLite, short key, http origins, no automatic retention
+    s = Settings(admin_api_key="k" * 40, _env_file=None, env="prod", database_url="postgresql+psycopg://h:p@db/h",
+                 dashboard_origins="https://hornet.example.org", retention_auto=True, store_raw_commands=True)
     assert s.safety_summary()["commands stored"] == "redacted + RAW"

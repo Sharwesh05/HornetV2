@@ -166,9 +166,9 @@ def test_full_build_publish_and_twin(db, session_factory, client, tmp_path, proj
         # ---- publish, then run a real twin from the snapshot's image ---------------------------------------
         services.publish_snapshot(db, snap)
         db.commit()
-        from app.runtime.docker_driver import HardenedDockerDriver
+        from tests.helpers_runtime import twin_driver
 
-        mgr = sm.SessionManager(HardenedDockerDriver(client), session_factory, ExecutionPolicy(timeout_ms=5000), BASE)
+        mgr = sm.SessionManager(twin_driver(client), session_factory, ExecutionPolicy(timeout_ms=5000), BASE)
         sess = mgr.create_session()
         try:
             def sh(cmd):
@@ -241,7 +241,7 @@ def test_canaries_reach_no_model_prompt_and_no_log(db, session_factory, client, 
 
     from app.ai.synthesis import SynthesisWorker
     from app.environment.image_builder import DockerImageBuilder
-    from app.runtime.docker_driver import HardenedDockerDriver
+    from tests.helpers_runtime import twin_driver
 
     caplog.set_level(logging.DEBUG)
     cfg = STACKS[project]
@@ -256,7 +256,7 @@ def test_canaries_reach_no_model_prompt_and_no_log(db, session_factory, client, 
     services.publish_snapshot(db, snap)
     db.commit()
     synth = SynthesisWorker(model, session_factory, timeout_s=5, max_per_session=20)
-    mgr = sm.SessionManager(HardenedDockerDriver(client), session_factory, ExecutionPolicy(timeout_ms=8000), BASE,
+    mgr = sm.SessionManager(twin_driver(client), session_factory, ExecutionPolicy(timeout_ms=8000), BASE,
                             synthesizer=synth)
     sess = mgr.create_session()
     try:

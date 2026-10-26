@@ -87,10 +87,10 @@ def validate_plan(plan: EnvPlan, forbidden: tuple[str, ...] = ()) -> ValidationR
 
     # --- credential consistency across resources ----------------------------------------------
     for path, secret_name in plan.expectations:
-        f, value = files.get(path), plan.secrets.get(secret_name)
-        if f is None or value is None:
+        holder, value = files.get(path), plan.secrets.get(secret_name)
+        if holder is None or value is None:
             err.append(f"credential {secret_name!r} expected in {path} but one of them is missing")
-        elif value not in (f.content or ""):
+        elif value not in (holder.content or ""):
             err.append(f"credential {secret_name!r} is not consistent with {path}")
 
     # --- generated data may only mention the synthetic world --------------------------------

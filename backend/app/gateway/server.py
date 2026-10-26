@@ -73,7 +73,9 @@ class Gateway:
 
     @property
     def port(self) -> int:
-        return self.acceptor.get_addresses()[0][1]
+        if self.acceptor is None:
+            raise RuntimeError("the gateway is not listening")
+        return int(self.acceptor.get_addresses()[0][1])
 
     async def close(self) -> None:
         """Stop listening, hang up on everyone, and only return once every twin has been destroyed."""
@@ -128,6 +130,13 @@ class HornetServer(asyncssh.SSHServer):
         self.gw = gw
         self.st: ConnState | None = None
 
+    @property
+    def state(self) -> ConnState:
+        """This connection's state; asyncssh calls connection_made before any other callback."""
+        if self.st is None:
+            raise RuntimeError("connection state used before connection_made")
+        return self.st
+
     # -- connection lifecycle -------------------------------------------------------------------------
     def connection_made(self, conn: asyncssh.SSHServerConnection) -> None:
         peer = conn.get_extra_info("peername") or ("?", 0)
@@ -156,14 +165,14 @@ class HornetServer(asyncssh.SSHServer):
 
     # -- authentication -----------------------------------------------------------------------------
     def begin_auth(self, username: str) -> bool:
-        self.st.username = username[:64]
+        self.state.username = username[:64]
         return True
 
     def password_auth_supported(self) -> bool:
         return True
 
     async def validate_password(self, username: str, password: str) -> bool:
-        st, gw = self.st, self.gw
+        st, gw = self.state, self.gw
         st.attempts += 1
         ok = gw.policy.accepts(st.attempts, password)
         await gw.record(st, "auth.password", user=username[:64], success=ok, attempt=st.attempts, **gw.policy.describe(password))
@@ -175,20 +184,20 @@ class HornetServer(asyncssh.SSHServer):
         return True
 
     async def validate_public_key(self, username: str, key: asyncssh.SSHKey) -> bool:
-        await self.gw.record(self.st, "auth.publickey", user=username[:64], fingerprint=key.get_fingerprint(), success=False)
+        await self.gw.record(self.state, "auth.publickey", user=username[:64], fingerprint=key.get_fingerprint(), success=False)
         return False
 
     # -- things we never allow --------------------------------------------------------------------------
     def connection_requested(self, dest_host: str, dest_port: int, orig_host: str, orig_port: int):
-        self.gw.spawn(self.gw.record(self.st, "forward.denied", kind="direct-tcpip", dest=f"{dest_host}:{dest_port}"))
+        self.gw.spawn(self.gw.record(self.state, "forward.denied", kind="direct-tcpip", dest=f"{dest_host}:{dest_port}"))
         return False
 
     def server_requested(self, listen_host: str, listen_port: int):
-        self.gw.spawn(self.gw.record(self.st, "forward.denied", kind="remote-forward", listen=f"{listen_host}:{listen_port}"))
+        self.gw.spawn(self.gw.record(self.state, "forward.denied", kind="remote-forward", listen=f"{listen_host}:{listen_port}"))
         return False
 
     def unix_connection_requested(self, dest_path: str):
-        self.gw.spawn(self.gw.record(self.st, "forward.denied", kind="unix", dest=dest_path[:100]))
+        self.gw.spawn(self.gw.record(self.state, "forward.denied", kind="unix", dest=dest_path[:100]))
         return False
 
     def unix_server_requested(self, listen_path: str):

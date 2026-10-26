@@ -8,6 +8,7 @@ model's answer is validated in code (synthesis_validator.py) and never executed 
 """
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 from app.sanitization.patterns import COMMAND_SECRET_KINDS, redact
 
@@ -33,7 +34,7 @@ class GapRequest:
     service: str
     text: str  # what was asked: SQL, a Redis command line, or "METHOD /path"
     body: str = ""  # HTTP request body, if any
-    meta: dict = field(default_factory=dict)  # protocol details (status, code ...), attacker text already capped
+    meta: dict[str, Any] = field(default_factory=dict)  # protocol details (status, code ...), attacker text already capped
 
 
 def clean_untrusted(text: str, limit: int = MAX_REQUEST_CHARS) -> str:
@@ -45,7 +46,7 @@ def clean_untrusted(text: str, limit: int = MAX_REQUEST_CHARS) -> str:
     return text if len(text) <= limit else text[:limit] + "..."
 
 
-def gap_from_event(event: dict) -> GapRequest | None:
+def gap_from_event(event: dict[str, Any]) -> GapRequest | None:
     """Turn a service event (docs/service-events.md) into a GapRequest; None if there is nothing to answer."""
     proto = event.get("proto")
     if proto == "postgres":
@@ -56,11 +57,11 @@ def gap_from_event(event: dict) -> GapRequest | None:
         return None
     if not text.strip():
         return None  # e.g. the PostgreSQL extended protocol: no query text was recorded
-    meta = {k: event[k] for k in ("status", "code") if k in event}
+    meta: dict[str, Any] = {k: event[k] for k in ("status", "code") if k in event}
     return GapRequest(proto, str(event.get("service", "")), text, str(event.get("body") or ""), meta)
 
 
-def build_context(gap: GapRequest, schema: dict[str, list[str]], recent: list[GapRequest]) -> dict:
+def build_context(gap: GapRequest, schema: dict[str, list[str]], recent: list[GapRequest]) -> dict[str, Any]:
     """The JSON context sent to the provider. `schema`: table -> column names of the snapshot's database."""
     request = {"text": clean_untrusted(gap.text)}
     if gap.body:

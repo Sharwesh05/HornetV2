@@ -1,8 +1,18 @@
 # Hornet v2: Architecture
 
-An AI-assisted **digital-twin honeypot for Docker environments**. It watches an authorized real server, builds a sanitized synthetic copy of it, and lets attackers connect over SSH into a disposable, isolated copy where their commands really run. Everything they do is recorded as evidence.
+An AI-assisted **digital-twin honeypot for Docker environments**. It watches an authorized real server (read-only),
+builds a sanitized synthetic copy of it, and lets attackers connect over SSH into a disposable, isolated copy where
+their commands really run. Everything they do is recorded as evidence and shown in a dashboard.
 
-*Status snapshot: 2026-10-16. Verified today on Windows 11 + Docker Desktop 29.8: 399 tests pass, lint is clean, working tree committed.*
+*Status: 2026-10-26. Verified on Linux (CachyOS, kernel 7.3, Python 3.14, Docker with runc and gVisor): 604
+backend tests (115 against real Docker or PostgreSQL; 4 skipped as documented gVisor/runc exceptions) and 64
+dashboard tests pass; the real-Docker tests also pass with every twin under gVisor; ruff, mypy and ESLint are clean.
+CI runs on GitHub for Linux (unit, real-Docker integration on runc and gVisor, dashboard) and Windows (unit).*
+
+Related documents: [README.md](README.md) (overview and reference), [docs/user-guide.md](docs/user-guide.md) (install
+and use), [docs/demo-script.md](docs/demo-script.md) (the presentation), [docs/threat-model.md](docs/threat-model.md),
+[docs/evaluation-report.md](docs/evaluation-report.md), [docs/limitations.md](docs/limitations.md),
+[AGENTS.md](AGENTS.md) (rules and phases).
 
 ---
 
@@ -10,26 +20,24 @@ An AI-assisted **digital-twin honeypot for Docker environments**. It watches an 
 
 | Phase | What it delivers | Status |
 |---|---|---|
-| 0. Scaffolding | `pyproject.toml`, `.env.example`, `.gitignore`, Docker Compose for the management plane | **Partly done** (no CI, no `scripts/dev.py`, no pre-commit, no `.gitattributes`) |
-| 1. Management foundation | Admin API, data model, migrations, immutability rules, audit | **Done and tested** |
-| 2. Isolated twin execution | Hardened disposable containers, session lifecycle, evidence capture | **Done and tested** |
-| 3. Discovery, sanitization, builder | Read-only discovery, regex + AI sanitizer (NVIDIA NIM), generic environment builder, pinned image | **Done and tested** (NIM verified live) |
-| 4. Gateway, persistent shell, running services | SSH front door, per-connection twin, fake HTTP/PostgreSQL/Redis, linked event stream | **Done and tested** (also run by hand with real OpenSSH) |
-| **5. AI synthesis** | AI answers what the fake services can't, validated in code | **Not started.** Only groundwork exists (section 8.5) |
-| 6. Dashboard | React UI, live feed, session replay, raw-vs-AI inspector, environment tree | **Done** (`frontend/`, section 10.1) |
-| 7. Demo security and essential evaluation | Egress/cross-session/canary tests, demo safety check, measurements, limitations | **Done** (`docs/results/evaluation.md`, `docs/limitations.md`) |
-| H. Full hardening (after the presentation) | gVisor, escape suite, Postgres triggers, deployment | Not started |
-| 8. Capstone documentation | Threat model, user guide, evaluation report | Not started |
+| 0. Scaffolding | `pyproject.toml`, `.env.example`, task runner `scripts/dev.py`, `.gitattributes`, CI (Linux + Windows) | Done (mypy added in Phase H) |
+| 1. Management foundation | Admin API, data model, migrations, immutability rules, audit | Done |
+| 2. Isolated twin execution | Hardened disposable containers, session lifecycle, evidence capture | Done |
+| 3. Discovery, sanitization, builder | Read-only discovery, regex + AI sanitizer (NVIDIA NIM), generic builder, pinned image | Done |
+| 4. Gateway, persistent shell, fake services | SSH front door, one twin per connection, fake HTTP/PostgreSQL/Redis, linked events | Done |
+| 5. AI synthesis | **5A done:** AI proposals for requests the fake services cannot answer, validated in code, stored apart from evidence, never shown to the attacker. 5B (live serving) is optional and not built | 5A done |
+| 6. Dashboard (+ 6.5 redesign) | React dashboard: live feed, session replay, raw-vs-AI inspector, environment map, plain-English summaries | Done |
+| 7. Demo security and evaluation | Egress, cross-session and canary tests; demo safety check; measurements; limitations | Done |
+| 8. Documentation | User guide, threat model, evaluation report, demo script | Done (this phase) |
+| H. Full hardening | gVisor driver, full escape suite, PostgreSQL triggers, `prod` profile, deployment design, mypy | Done, **awaiting approval** |
 
-Note: the second git commit is titled "Phases 0-5 foundation". That is generous: Phases 1 to 4 were implemented then; Phase 5A (out-of-band AI proposals) was added later (section 10).
-
-**Size:** about 5,250 lines of application code, 3,970 lines of tests, a 905-line in-twin service emulator, 12 database tables, 3 migrations, 17 API routes (16 admin, 1 public).
+**Size:** about 6,360 lines of backend code, 5,250 lines of backend tests, a 917-line in-twin service emulator,
+2,190 lines of dashboard code and 500 lines of dashboard tests; 12 database tables, 4 migrations, 20 REST routes
+(19 admin, 1 public) and 1 WebSocket.
 
 ---
 
-## 2. What is "the base"?
-
-"The base" is what every phase stands on. It has four layers.
+## 2. Principles and building blocks
 
 ### 2.1 The core idea
 ```
@@ -37,48 +45,48 @@ real server (observed, never touched)
    -> sanitized profile
    -> synthetic environment (versioned, immutable snapshot)
    -> disposable twin per attacker (real commands run here)
-   -> AI fills only validated gaps
-   -> recorded evidence + analytics
+   -> AI proposes answers only for validated gaps (out of band)
+   -> recorded evidence + dashboard
 ```
-Three things provide realism, and none of them is trusted to do the others' job:
-
 | Role | Provided by | Why |
 |---|---|---|
 | **Execution realism** | A real Linux container running the attacker's real commands | Output is genuine, never guessed |
-| **Structural consistency** | A precomputed, immutable graph of the environment (the "base snapshot") | Files, users, services and credentials agree with each other |
-| **Behavioral realism** | AI, limited to gaps (Phase 5) | Covers what the fakes can't, without inventing facts |
+| **Structural consistency** | A precomputed, immutable graph of the environment (the snapshot) | Files, users, services and credentials agree |
+| **Behavioral coverage** | AI, limited to gaps the fake services flag | Shows what a real server might have said, without inventing evidence |
 
-### 2.2 The base principles (these constrain all code)
-1. **The observed server is an input, never an assumption.** Nothing in the code may depend on a particular demo server. Two different demos prove it.
-2. **Attacker input never runs on the host.** It runs only in a disposable container created by the orchestrator.
-3. **Evidence and AI output are kept apart.** Real execution results are stored separately from anything the AI proposes.
-4. **Deterministic code has the last word.** Regex redaction, validators and limits run regardless of what any model says. The AI can only remove, tighten or propose; it is never trusted.
-5. **Published snapshots are immutable.** A session's changes live in an overlay and never alter the base.
-6. **Limits come from server-side policy,** never from attacker input.
-7. **No secrets in the repo.** Keys live in `.env` (git-ignored).
+### 2.2 Principles (these constrain all code)
+1. **The observed server is an input, never an assumption.** No code outside tests and the demo folders mentions a
+   particular demo; every build test runs against two deliberately different demo servers.
+2. **Attacker input never runs on the host.** Only in a disposable container created by the orchestrator.
+3. **Evidence and AI output are kept apart,** in storage (separate tables) and on screen (separate panels).
+4. **Deterministic code has the last word.** Redaction, validators and limits run whatever a model says; models can
+   only remove, tighten or propose.
+5. **Published snapshots are immutable.** A session's changes live in its overlay.
+6. **Limits come from server-side policy,** never from attacker input. The demo profile may tighten, never loosen.
+7. **No secrets in the repo.** Keys live in `.env` (git-ignored); tests use fake canary values.
 
-### 2.3 The base technology
+### 2.3 Technology
 | Layer | Choice |
 |---|---|
-| Language / API | Python 3.14 in the dev venv (project allows 3.12+), FastAPI, Pydantic v2, uvicorn |
-| Storage | SQLAlchemy 2 + Alembic. PostgreSQL 16 in Docker (JSONB), SQLite for unit tests and local runs |
-| Containers | Docker Desktop (WSL2) via the Python `docker` SDK |
+| Backend | Python 3.12+ (3.14 in development), FastAPI, Pydantic v2, uvicorn |
+| Storage | SQLAlchemy 2 + Alembic; SQLite for development and tests, PostgreSQL 16 required in production |
+| Containers | Docker via the Python `docker` SDK; hardened-Docker runtime (runc), or gVisor (`runsc`) on Linux |
 | SSH | `asyncssh` |
-| AI | NVIDIA NIM (OpenAI-compatible HTTP, via `httpx`), pluggable `AIProvider` interface; offline `TemplateProvider` fallback |
-| Tests / lint | pytest, ruff |
-| Dashboard | React 19 + TypeScript + Tailwind 4 + Vite (`frontend/`); Vitest + Testing Library; ESLint |
-| Not yet used | gVisor/Firecracker/Kata |
+| AI | NVIDIA NIM (OpenAI-compatible HTTP via `httpx`) behind an `AIProvider` interface; offline `TemplateProvider` |
+| Dashboard | React 19, TypeScript, Tailwind CSS 4, Vite; self-hosted fonts |
+| Tests / lint | pytest, ruff; Vitest + Testing Library, ESLint, `tsc`; GitHub Actions |
 
-### 2.4 The base image: `hornet-twin-base:2`
-Every twin is built `FROM` this generic Debian 12 image (303 MB). It knows nothing about any application.
-- Tools an admin would expect: bash, coreutils, procps, curl, wget, iproute2, ping, ssh client, `python3`, **real `psql`**, **real `redis-cli`**.
-- **No setuid/setgid binaries anywhere.**
-- Two accounts: `user` (uid 1000, runs every attacker command) and `hornet-sys` (uid 1001, owns PID 1 and the service emulators, so the attacker cannot signal or read them).
-- Contains the in-twin service emulator at `/usr/share/hornet/emulator.py`.
-- Each discovered server gets its own derived image `FROM` this base; the image ID (digest) is pinned in the database.
+### 2.4 The base image `hornet-twin-base:2`
+A generic Debian 12 image that knows nothing about any application: bash, coreutils, procps, curl, wget, iproute2,
+ping, an SSH client, `python3`, the real `psql` and `redis-cli`. **No setuid/setgid binaries.** Two accounts: `user`
+(uid 1000, runs every attacker command) and `hornet-sys` (uid 1001, owns PID 1 and the fake services). Each built
+environment gets its own image `FROM` this base, pinned by image ID.
 
-### 2.5 The base data: the snapshot graph
-A **snapshot** is the immutable description of one synthetic environment: a tree of nodes (directories, files, services, endpoints, users, databases) plus the pinned twin image. Once published it can never be changed (enforced in code and tested). Everything attackers do is recorded against it and linked to its nodes.
+### 2.5 The snapshot graph
+A snapshot is the immutable description of one synthetic environment: nodes for directories, files, services,
+endpoints, users and databases (with table and column names), each with a sensitivity class (`public` or
+`synthetic-sensitive` for files holding fake credentials), plus the pinned image. Everything attackers do is linked
+to its nodes.
 
 ---
 
@@ -86,58 +94,58 @@ A **snapshot** is the immutable description of one synthetic environment: a tree
 
 ```mermaid
 flowchart TB
-  subgraph build["Build time (Phase 3)"]
+  subgraph build["Build time"]
     RS["Observed Docker server<br/>(read-only, allowlisted)"] --> DISC["Discovery<br/>4 read calls, env values dropped"]
-    DISC --> SAN["Sanitizer: regex first,<br/>then AI review (NVIDIA NIM)"]
-    SAN --> PROF["Sanitized profile"]
-    PROF --> BLD["Builder: roles + data model<br/>+ fake credentials"]
+    DISC --> SAN["Sanitizer: regex first,<br/>then AI review (NIM), regex last"]
+    SAN --> BLD["Builder: roles, data model,<br/>fake credentials, documents"]
     BLD --> VAL["Validator"]
-    VAL --> IMG["Image FROM hornet-twin-base:2<br/>pinned by digest"]
-    IMG --> SNAP["Snapshot (draft -> validated -> published)"]
+    VAL --> IMG["Image FROM hornet-twin-base:2<br/>pinned by ID"]
+    IMG --> SNAP["Snapshot: draft, validated, published"]
   end
-  subgraph run["Run time (Phases 2 and 4)"]
+  subgraph run["Run time"]
     ATK["Attacker (ssh)"] --> GW["SSH gateway"]
     GW --> SM["Session manager"]
     SM --> TWIN["Disposable twin<br/>no network, locked down"]
     TWIN --> EMU["Fake HTTP / PostgreSQL / Redis<br/>on loopback aliases"]
-    SM --> EV["Evidence + events<br/>(database)"]
+    SM --> EV["Evidence and events (database)"]
+    EMU -. "unsupported requests" .-> SYN["AI synthesis worker<br/>(out of band, validated)"]
+    SYN --> AI[("ai_synthesis")]
   end
   SNAP --> SM
-  ADMIN["Admin (REST API)"] --> SNAP
-  ADMIN --> EV
+  ADMIN["Investigator: dashboard / admin API"] --> SNAP
+  EV --> ADMIN
+  AI --> ADMIN
 ```
-
-**Planes:** observation (discovery), construction (sanitizer, builder), execution (runtime driver, session manager, twin), telemetry (events, audit), presentation (admin API and the dashboard). The AI synthesis plane is used at build time and, out of band, for run-time gaps (Phase 5A).
 
 ---
 
 ## 4. Repository layout
 
 ```
-hornet_v2/
-├── README.md  architecture.md  AGENTS.md  pyproject.toml  .env.example  docker-compose.yml
+HornetV2/
+├── README.md  architecture.md  AGENTS.md  READING_GUIDE.md  pyproject.toml  .env.example  docker-compose.yml
 ├── backend/
 │   ├── app/
-│   │   ├── main.py            app + lifespan (starts the gateway, reaper, clean shutdown)
-│   │   ├── config.py          validated settings (unsafe config fails startup)
-│   │   ├── models.py  db.py  schemas.py  services.py  graph.py  immutability.py  profile.py
-│   │   ├── api/               auth.py (API key), v1.py (all admin endpoints)
-│   │   ├── discovery/         docker_inventory.py (read-only wrapper, allowlist)
-│   │   ├── sanitization/      patterns.py, classifier.py, sanitizer.py, ai_review.py
-│   │   ├── environment/       pipeline, builder, roles, role_detect, data_model, synthetic_data,
-│   │   │                      service_fixtures, plan, validator, graph_nodes, image_builder
-│   │   ├── ai/                provider.py, nim_provider.py, enrichment.py, doc_validator.py
-│   │   ├── runtime/           driver.py (contract), docker_driver.py, policy.py, fsdiff.py, factory.py
-│   │   ├── orchestration/     session_manager.py, lifecycle.py, shell_state.py, linker.py
-│   │   └── gateway/           server.py (asyncssh), auth.py
-│   ├── migrations/versions/   0001 schema, 0002 session activity, 0003 gateway events
-│   └── tests/                 15 test files, 399 tests
-├── twin-image/                Dockerfile + emulator/hornet_emulator.py
-├── main-server/               demo server 1 (a shop; fake data, canary secrets)
-├── demo-servers/helpdesk/     demo server 2 (a ticket system; deliberately different)
-├── scripts/                   make_papers_xlsx.py
-├── reports/ research_notes/   literature research on prior work
-└── Research and Limitations.xlsx
+│   │   ├── main.py  config.py  models.py  db.py  schemas.py  services.py  graph.py  immutability.py
+│   │   │   profile.py  retention.py
+│   │   ├── api/            auth.py, v1.py (REST), live.py (WebSocket live feed)
+│   │   ├── discovery/      docker_inventory.py (read-only wrapper, allowlist)
+│   │   ├── sanitization/   patterns.py, classifier.py, sanitizer.py, ai_review.py
+│   │   ├── environment/    pipeline, builder, roles, role_detect, data_model, synthetic_data, service_fixtures,
+│   │   │                   plan, validator, graph_nodes, image_builder
+│   │   ├── ai/             provider, nim_provider, enrichment, doc_validator, synthesis, synthesis_context,
+│   │   │                   synthesis_validator
+│   │   ├── runtime/        driver.py (contract), docker_driver.py, policy.py, fsdiff.py, factory.py
+│   │   ├── orchestration/  session_manager, lifecycle, shell_state, linker, service_events
+│   │   └── gateway/        server.py (asyncssh), auth.py
+│   ├── migrations/versions/  0001 schema, 0002 session activity, 0003 gateway events, 0004 command text
+│   └── tests/              25 test files incl. ai_consistency/ (604 tests)
+├── frontend/               dashboard (src/views, src/components, src/lib, src/test)
+├── twin-image/             Dockerfile + emulator/hornet_emulator.py
+├── main-server/  demo-servers/helpdesk/   two deliberately different demo servers (fake data, canary secrets)
+├── scripts/                dev.py (task runner), evaluate.py, measure_synthesis.py, seed_demo_session.py
+├── docs/                   user guide, demo script, threat model, evaluation report, limitations, results/
+└── .github/workflows/ci.yml
 ```
 
 ---
@@ -146,308 +154,213 @@ hornet_v2/
 
 | Table | Purpose | Rules |
 |---|---|---|
-| `environment_snapshot` | One synthetic environment version: status, hash, validation/build report | Immutable once `published` or `archived` |
-| `virtual_node` | The graph: directory, file, service, endpoint, user, database nodes | Same; file **contents are never stored here**, only references and hashes |
-| `service_profile` | Per-service config for a snapshot (role, ports, loopback address, emulator kind) | Snapshot-owned, immutable once published |
-| `twin_image` | The pinned image digest for a snapshot | Snapshot-owned |
-| `honeypot_session` | One attacker session: status, runtime id, source IP, times, end reason | End reason: the **first** cause is kept |
-| `execution_request` | One command the attacker typed (stored as a hash) | |
-| `execution_observation` | The real result: stdout, stderr, exit code, flags | **Append-only.** Marked `source: execution` |
-| `ai_synthesis` | AI proposals for `unsupported` requests (Phase 5A), never served | **Append-only.** One row per gap |
-| `session_event` | Timeline: lifecycle, commands, resource access, fs changes, service requests | **Append-only** |
-| `session_overlay` | Per-session file changes (created/modified/deleted) | |
-| `gateway_event` | Door-level events before a twin exists: connections, logins, refusals | **Append-only** |
-| `admin_audit_event` | Administrator actions, separate from attacker events | **Append-only** |
+| `environment_snapshot` | One environment version: status, hash, validation and build report | Immutable once published or archived |
+| `virtual_node` | The graph: directory, file, service, endpoint, user, database nodes | Same; file contents are never stored, only references and hashes |
+| `service_profile` | Per-service config (role, ports, loopback address, emulator kind) | Snapshot-owned, immutable once published |
+| `twin_image` | The pinned image ID of a snapshot | Snapshot-owned |
+| `honeypot_session` | One visit: status, runtime id, source IP, times, end reason, AI policy version | The **first** end reason is kept |
+| `execution_request` | One command: `input_hash` (raw), `input_text` (credentials redacted), `input_raw` (only if enabled) | |
+| `execution_observation` | The real result: stdout, stderr, exit code, flags | **Append-only**; `source: execution` |
+| `ai_synthesis` | AI proposals for `unsupported` requests, one per gap, never served | **Append-only** |
+| `session_event` | Timeline: lifecycle, commands, resource access, file changes, service requests | **Append-only** |
+| `session_overlay` | Per-session file changes | |
+| `gateway_event` | Connections, login attempts, refusals | **Append-only** |
+| `admin_audit_event` | Administrator actions (including reads of command text) | **Append-only** |
 
-Session states: `requested -> provisioning -> ready -> active -> quiescing -> destroyed`, or `failed -> destroyed`. (`archived` is allowed by the state machine but not used yet.)
-
----
-
-## 6. Phase 1: Management foundation (done)
-
-**Goal:** the API, auth and data model everything else hangs on.
-
-- **Admin API** (FastAPI), authenticated by a constant-time-compared API key (`X-API-Key`). `/health` is the only public route.
-- **Settings:** one validated object. Startup fails on a weak or placeholder admin key, SQLite in production, a non-loopback gateway outside production, or NIM selected without a key.
-- **Immutability guards** (`immutability.py`) hook the ORM session: published/archived snapshots and everything they own cannot be changed or deleted; evidence, event and audit tables are append-only.
-- **Graph rules** (`graph.py`): paths are normalized and can't escape the virtual root; one root; valid parents; no duplicates or cycles.
-- **Snapshot lifecycle:** `build -> validate -> publish`. Publishing archives the previous published snapshot atomically. A failed build never replaces the active one.
-- **Audit:** every admin action is recorded.
-
-**Verified:** migrations apply and roll back (SQLite for all three; PostgreSQL 16 for 0001 and 0002, **0003 was verified on SQLite only**); modifying a published snapshot raises an error (tested).
+Append-only and immutability rules are enforced on every ORM flush (`immutability.py`). The only path allowed to
+delete recorded data is the audited retention purge (`retention.py`). Session states:
+`requested -> provisioning -> ready -> active -> quiescing -> destroyed`, or `failed -> destroyed`.
 
 ---
 
-## 7. Phase 2: Isolated twin execution (done)
+## 6. Management (Phase 1)
 
-**Goal:** run a command in a disposable sandbox and capture real evidence.
+- **Admin API** (FastAPI). Every route except `/health` needs `X-API-Key` (constant-time comparison).
+- **Settings** (`config.py`): one validated object. Startup fails on a weak admin key, SQLite in production, NIM
+  without a key, a wildcard dashboard origin, and in the **demo profile** (`HORNET_ENV=dev`) on anything that would
+  loosen the demo: a non-loopback gateway or dashboard origin, raw command storage, or a twin limit above its
+  default. `python -m scripts.dev safety` prints the effective safety settings.
+- **Snapshot lifecycle:** build, validate, publish; publishing archives the previous version atomically; a failed
+  build never replaces the published one.
+- **Audit:** every administrator action, including each read of a session's commands and each live-feed connection.
+- **Migrations:** apply and roll back on SQLite and on PostgreSQL 16 (all five, tested). On PostgreSQL, 0005 adds
+  triggers that refuse changes to published snapshots and append-only tables even through raw SQL; only the
+  retention purge's own transaction may delete, and never the audit log.
 
-### 7.1 Runtime driver
-`RuntimeDriver` is the interface the rest of the system uses (create, exec, observe filesystem, list processes, start services, collect service events, destroy). Today there is one implementation, `HardenedDockerDriver`. gVisor/Kata/Firecracker drivers can be added without touching the orchestrator.
+---
 
-### 7.2 What every twin gets
+## 7. Isolated twins (Phase 2)
+
+`RuntimeDriver` is the only way the orchestrator touches a twin (create, exec, observe files, list processes, start
+services, collect service events, destroy). One implementation today: `HardenedDockerDriver`.
+
 | Control | Setting |
 |---|---|
-| Network | `none` (loopback only) |
-| Mounts / Docker socket / privileged | none |
-| Capabilities | all dropped (effective set is empty); `no-new-privileges`; default seccomp |
-| Filesystem | read-only root; small writable tmpfs for `/tmp`, `/var/tmp`, the home directory |
-| Limits (defaults) | 128 MB RAM, 0.5 CPU, 64 processes, 256 open files, 16 MB per writable area |
-| Per command | 5 s timeout (killed with SIGKILL), 64 KB output cap, 8 KB input cap |
-| Users | PID 1 runs as uid 1001; attacker commands run as uid 1000 and cannot signal it |
-| Hard maxima | Config can't exceed them (e.g. timeout at most 60 s, RAM at most 1 GB, 512 processes) |
-| Cleanup | Labelled containers; orphans from a crash are removed on the next start; shutdown destroys all twins |
+| Network | `none` (loopback only); no route out by TCP, UDP, DNS, ICMP or IPv6 (tested) |
+| Mounts / Docker socket / privileged | none (tested) |
+| Capabilities | all dropped; `no-new-privileges`; default seccomp |
+| Filesystem | read-only root; size-limited tmpfs for `/tmp`, `/var/tmp` and the home directory |
+| Default limits (demo ceilings) | 128 MB RAM, 0.5 CPU, 64 processes, 256 open files, 16 MB per writable area |
+| Per command | 5 s timeout (SIGKILL), 64 KB output cap, 8 KB input cap |
+| Users | PID 1 runs as uid 1001; attacker commands as uid 1000, unable to signal it |
+| Cleanup | labelled containers; orphans removed on the next start; shutdown destroys all twins |
 
-### 7.3 The session manager (orchestrator)
-Owns the lifecycle and enforces: a maximum number of concurrent sessions (default 5), a lifetime (900 s) and an idle timeout (300 s), with a background reaper. Each command is recorded as a request (hash only) plus an observation (the real output).
-
-### 7.4 Observation
-After each command: stdout, stderr, exit code, duration, whether it timed out or was truncated; a **filesystem diff** of the writable areas (created/modified/deleted); the process list (taken from the host side, so it works even when the twin can't fork).
-
-### 7.5 Failure handling
-- Timeout: the command is killed and the twin stays usable.
-- Output flood: capped; the runaway process is killed and the stream drained.
-- **Fork bomb:** the host is never at risk. The manager detects a full process table, marks the session failed ("limit exceeded: process limit") and destroys the twin.
-- Image/digest mismatch: refused; nothing is launched.
-
-**Verified (real Docker):** a fork bomb, memory hog, 1 GB write, infinite loop, output flood, docker-socket and network probes, capability and privilege checks, kill-PID-1, mount, and cross-session isolation.
-
-**Limit:** on Windows the kernel is shared with the Docker Desktop VM, so this is weaker than gVisor or a microVM. Don't expose it to the internet.
+The **session manager** owns the lifecycle: at most 5 concurrent twins, 900 s lifetime, 300 s idle timeout, a
+background reaper. After each command it stores the observation, the filesystem diff, the process count, links to
+graph nodes and the fake services' events. A full process table (fork bomb) or a hung twin ends the session
+("limit exceeded") and destroys the twin. **Tested on real Docker:** fork bomb, memory hog, output flood, timeouts,
+1 GB write, kill PID 1, capabilities, Docker socket, egress, cross-session files, processes and fake-service state.
 
 ---
 
-## 8. Phase 3: Discovery, sanitization, builder (done)
+## 8. Building environments (Phase 3)
 
-**Goal:** turn an authorized real Docker server into a versioned synthetic snapshot.
+1. **Discovery (read-only):** `ReadOnlyDocker` exposes four read calls only; only allowlisted compose projects
+   (`HORNET_DISCOVERY_ALLOWED_PROJECTS`); environment variable **values are dropped at the source**.
+2. **Sanitization:** deterministic redaction first (URL credentials, keys and tokens, JWTs, `NAME_PASSWORD=` style
+   assignments, `--password x`, `-u user:pass`, private keys, emails, IPs, host paths, high-entropy strings); then an
+   optional AI review that only sees redacted text and can only remove; then `assert_clean` again, which fails the
+   build on any leftover. Modes `required` (fail closed), `advisory`, `off`.
+3. **Builder:** roles from image, command line and ports (`postgres`, `mysql`, `redis`, `nginx`, `http-app`,
+   `generic`); a validated data model (AI-proposed or keyword default); fake credentials consistent across `.env`,
+   init SQL, `~/.pgpass`, `redis.conf` and the fake services; logs, users, bait files, AI-written documents
+   (validated).
+4. **Validator:** graph invariants, owners, cross-file credential consistency, synthetic-only emails and IPs, leak
+   scan, size limits.
+5. **Image:** built `FROM` the base, pinned, recorded; any failure removes it and leaves no snapshot.
 
-### 8.1 Discovery (read-only)
-- `ReadOnlyDocker` exposes exactly four read calls (list containers, inspect, diff, list networks) and holds no handle to anything that can exec, start, stop or copy.
-- Only compose projects listed in `HORNET_DISCOVERY_ALLOWED_PROJECTS` can be observed (default: none). Hornet's own twins are excluded.
-- **Environment variable values are dropped at the source:** only names are kept. A test proves nothing was exec'd or restarted in the production containers.
-
-### 8.2 Sanitization (two layers)
-1. **Deterministic (always runs first, always has the last word).** Regex detectors for URL credentials, cloud keys, tokens, JWTs, `--password x`, `curl -u u:p`, private keys, emails, IPs, host paths, and high-entropy strings. Host-side mount paths, compose bookkeeping labels and private registry hosts are removed. A second pass (`assert_clean`) fails the build if anything sensitive survived.
-2. **AI review (NVIDIA NIM).** Sees only already-redacted text. Returns substrings that must appear verbatim in what it was sent; code replaces them with `redacted-<category>`. It cannot add or rewrite data; it can only mark plain config variables as secret. The project and service names are protected; structural fields (paths, commands) can't be wiped out. Modes: `required` (build fails if the model is unavailable), `advisory`, `off`.
-
-### 8.3 The builder (generic by construction)
-Sanitized profile -> **plan** -> validated -> image.
-- **Roles** are detected from the image, command line and published ports: `postgres`, `mysql`, `redis`, `nginx`, `http-app`, or `generic`. Any server works; unknown services get a generic twin.
-- **Data model:** a validated schema (tables and typed columns) either proposed by the AI or chosen by keyword (commerce, helpdesk, content) or a neutral default. Rows are generated from column types with fictional people, so emails, logs and SQL agree.
-- **Fake credentials are consistent across files** (`.env`, init SQL, `~/.pgpass`, `redis.conf`, and the emulator config) so what an attacker steals actually works.
-- **Files generated:** users and `/etc/passwd`, configs, logs, a seeded home with bait files, an app source stub that follows the runtime hint (python, node, or plain config).
-- **AI documents** (shell history, notes) are validated: allowed folders only, no overwrites, no secrets, only fictional emails and documentation-range IPs. A failure never fails a build.
-- **Validator:** graph invariants, owners exist, credentials match across files, no non-synthetic emails/IPs, a leak scan with the planned fake secrets removed, size limits.
-- **Image:** written as a build context, built `FROM` the base, pinned by ID, recorded with the snapshot. **Atomic:** any failure leaves no snapshot and removes the half-built image.
-
-### 8.4 Verified
-Canary secrets planted everywhere in both demo servers appear nowhere in the stored profile, build context, database, audit log or image. The same test body passes for both demo servers. NIM was verified **live** (details in the README); it found a person's name no regex can catch.
-
-### 8.5 Groundwork that Phase 5 will reuse
-`AIProvider` interface and `NimProvider`, `ai_synthesis` table, the `unsupported` flags emitted by the emulators, the `ai/doc_validator.py` approach (validate AI output in code), and `HORNET_AI_*` settings.
+Canary secrets planted in both demo servers appear nowhere in the profile, build folder, database, audit log, image,
+running twin, **any prompt sent to a model, or any log line** (tested, Phase 7.2).
 
 ---
 
-## 9. Phase 4: Gateway, persistent shell, running services (done)
+## 9. Visitors, shell and fake services (Phase 4)
 
-**Goal:** let an attacker connect and get their own twin.
+- **SSH gateway** (`asyncssh`, off by default, loopback only in the demo profile). Any username; a password works
+  on the 3rd attempt or at once if it is a known weak one. Every attempt is recorded (password as length + hash by
+  default). One twin per connection; reconnecting gives a clean twin. SFTP/SCP, port forwarding, agent and X11
+  forwarding are refused and logged. Interactive shells and `ssh host "command"` both work.
+- **Persistent shell:** each command is its own process, wrapped so the next one starts in the same directory with
+  the same exported variables; the stored command is what was typed (credentials redacted), not the wrapper.
+- **Fake services** (one stdlib-only program inside the twin, as the system user, on `127.0.1.N`, reachable by the
+  original service names): an HTTP table API, PostgreSQL (wire protocol, md5 auth, a SQL subset, catalog views, real
+  error codes) and Redis (RESP, AUTH, strings, hashes; dangerous commands refused). They share one in-memory store per
+  twin; state dies with the twin. Requests they cannot answer get a controlled error and an `unsupported` event
+  ([docs/service-events.md](docs/service-events.md)).
+- **Events:** `resource_access` (a command named a graph path: an observation, not proof of a read), `fs_change`,
+  `service.http|postgres|redis`, lifecycle events; gateway events separately.
 
-### 9.1 SSH gateway (`asyncssh`)
-- Off by default (`HORNET_GATEWAY_ENABLED`), loopback only, runs inside the API process and shares its session manager.
-- **Login:** any username. A password succeeds on the Nth attempt of a connection (default 3) or at once if it is a known-weak password. Public keys are refused but fingerprints are logged. Every attempt is stored (`gateway_event`); passwords are logged by default (research data) or reduced to length + hash.
-- **One twin per connection,** created when the first shell/exec channel opens, destroyed when the connection closes. Reconnecting gives a clean twin.
-- **Refused and logged:** SFTP/SCP and all subsystems, direct/remote/unix port forwarding, agent and X11 forwarding.
-- **Limits:** per-address connection limit, twin capacity limit, login timeout, idle logout. A limit violation ends the connection.
-- Supports a terminal session (prompt, history, line editing) **and** `ssh host "command"`, preserving the real exit code.
+---
 
-### 9.2 The persistent shell
-Each command is its own process (so each is separate evidence), wrapped so the next starts in the same directory with the same exported variables. A per-command random marker carries the new state back and is stripped from the output. The evidence records what was typed (not the wrapper), with credentials redacted (README, *Command storage*).
+## 10. AI synthesis (Phase 5A)
 
-### 9.3 Running fake services (inside each twin)
-A single stdlib-only Python program (`twin-image/emulator/hornet_emulator.py`) runs as the system user and serves, each on its own loopback address (`127.0.1.N`), reachable by the original service name:
+After a command, each `unsupported` service event goes to a background worker (`ai/synthesis.py`). The attacker
+never waits for it and never sees its answer. The worker:
+1. builds a minimal context (`synthesis_context.py`): table and column names, the request with credentials
+   redacted, injection phrasing and control characters stripped, labelled untrusted;
+2. calls the model with a hard timeout (default 3 s), a per-session cap (20) and a cache;
+3. validates the answer in code (`synthesis_validator.py`): strict per-protocol shape; no tables, columns or API
+   resources the snapshot lacks; no error that contradicts the schema; writes may only get errors; real SQLSTATEs only;
+   no secret-like strings, only example email domains and documentation IPs; size caps;
+4. stores one `ai_synthesis` row: `accepted`, `rejected`, `timeout` or `fallback`, with `served: false`.
 
-| Service | Protocol support |
+For speed the synthesis client asks NIM reasoning models to answer without "thinking" and does not use NVIDIA's
+guided decoding (both measured, [docs/results/synthesis_latency.md](docs/results/synthesis_latency.md)). Builds keep
+the model's defaults. **Model availability changes:** the code's default synthesis model
+(`nvidia/nemotron-3-super-120b-a12b`) returned HTTP 404 from 2026-10-20; the demo uses
+`nvidia/nemotron-3.5-super-vl-120b-a12b` via `.env`. With synthesis off (the default) or the provider down, nothing
+else changes.
+
+---
+
+## 11. Dashboard (Phase 6 and 6.5)
+
+`frontend/` talks to the admin API through the Vite dev server's proxy on `127.0.0.1:5173` (REST and WebSocket, so
+the browser only uses its own origin). The admin key lives in the tab's memory only; the theme choice is the only
+thing in browser storage.
+
+| Piece | Where |
 |---|---|
-| HTTP API | `GET/POST/PUT/PATCH/DELETE` over the tables, filtering, limits, JSON errors |
-| PostgreSQL | Wire protocol, md5 auth, simple queries, a useful SQL subset, `information_schema`, `\dt`, real error codes (`42P01`, `28P01`, `42501` ...) |
-| Redis | RESP, `AUTH`, strings, hashes, `KEYS`, `INFO`; dangerous commands refused |
-
-All services share one in-memory store (a row created via the API appears in SQL) and the state dies with the twin. Real `psql`, `curl` and `redis-cli` work against them. Unsupported requests get a controlled error and an `unsupported` event (the Phase 5 hook).
-
-### 9.4 Event stream and graph links
-- `resource_access`: a command named a path that exists in the graph (labelled `basis: command-argument`: an observation, **not proof** of a read).
-- `fs_change`: a file was created/modified/deleted (from the filesystem diff).
-- `service.http|postgres|redis`: a request to a fake service, linked to the service's node. Passwords are never stored by the emulators.
-- The twin cannot read the emulator's config or event log (mode 0600/0700, owned by the system user).
-
-### 9.5 Verified
-Real SSH client against the live server, and real Docker twins built from both demo servers: persistence, fake services answering real clients, two simultaneous connections isolated, clean reconnect, no route to the host/gateway/other sessions, fork-bomb handling, config and events unreadable to the attacker, shutdown leaves no twins. Also run by hand with OpenSSH 10.3.
+| Live feed | `WS /api/v1/ws/events` (`api/live.py`): key in the first message (4401 if wrong), foreign Origin refused (4403), database polled every second, audited |
+| Tree state | `GET /sessions/{id}/tree-state`: base, visited, overlay and sensitivity per node |
+| Plain English | `lib/describe.ts` (one sentence per event type), `lib/story.ts` ("What happened" summary, built from evidence, no AI), `lib/glossary.ts` |
+| Safe rendering | attacker text only through `AttackerText`/`Output` (text nodes); ESLint forbids every HTML-injection API; control and bidi characters shown visibly; no attacker text in attributes |
+| Raw vs AI | `ExecutionInspector.tsx`: "What really happened" and "AI suggestion" are separate panels |
+| Accessibility | WCAG AA contrast for every text/background pair in both themes (tested), keyboard focus, screen-reader labels |
 
 ---
 
-## 10. Phase 5: AI synthesis (5A done: out-of-band proposals)
+## 12. Admin API
 
-**Goal:** the AI fills gaps only, safely.
-
-**The problem:** the fake services support a limited set of requests. Anything else gets a controlled error and is
-flagged `unsupported` (PostgreSQL syntax/extended protocol, unknown Redis commands, unknown HTTP routes/tables/methods).
-
-**What 5A does.** After a command, the orchestrator hands each `unsupported` service event to a background worker
-(`ai/synthesis.py`). The worker asks the model for a strict-JSON answer, validates it in code and stores one
-`ai_synthesis` row per gap. **The answer is never sent to the attacker**: they already got the controlled error.
-Investigators see it next to the raw evidence, labelled "AI proposal, not served". Serving it live (5B: a bridge
-through `RuntimeDriver`) is optional and not built.
-
-**Routing:** real command output (unchanged; the AI never touches shell output) → the fake service's deterministic
-answer → only for `unsupported` gaps, an AI proposal.
-
-| Component | File | Job |
-|---|---|---|
-| Context builder | `ai/synthesis_context.py` | Table/column names only, the request with credentials redacted, control characters and injection phrasing stripped, capped, labelled untrusted; up to 5 earlier gaps |
-| Validator | `ai/synthesis_validator.py` | Strict per-protocol shape; no tables/columns/API resources the snapshot lacks; writes (INSERT, SET, POST ...) may only get errors; real SQLSTATEs only; no secret-like strings, only example email domains and documentation IPs; size caps |
-| Worker | `ai/synthesis.py` | Background threads; hard per-call timeout; per-session call cap; cache of repeated requests; statuses `accepted` / `rejected` / `timeout` / `fallback` |
-| Storage | `ai_synthesis` | `response_metadata`: source `ai`, `served: false`, redacted request, proposal (accepted only), reason, provider, policy version, latency. `execution_observation` is never touched. The session records `ai_policy_version` |
-| API | `GET /sessions/{id}/executions` | Each command's `ai_proposals`, in a separate list from the evidence |
-
-**Settings:** `HORNET_AI_SYNTH_ENABLED` (default off: then nothing changes), `HORNET_AI_SYNTH_TIMEOUT_S` (3),
-`HORNET_AI_SYNTH_MAX_PER_SESSION` (20), `HORNET_NIM_SYNTH_MODEL` (a fast non-reasoning model; builds keep
-`HORNET_NIM_MODEL`). With `HORNET_AI_PROVIDER=template` every gap is recorded as `fallback` (no model).
-
-**Latency:** the attacker never waits for the model (the work happens after the reply). Default model
-`nvidia/nemotron-3-super-120b-a12b` with thinking off and without NVIDIA's guided decoding: median about 1 s, p95
-about 2.3 s, 17 to 20 of 20 accepted within the 3 s limit (the rest: free-tier rate limits). Both switches matter:
-thinking on took about 9 s per call, guided decoding about 11 s. Details: `docs/results/synthesis_latency.md`.
-
-**Tests:** `tests/ai_consistency/` (prompt injection, invented tables/columns/resources, inconsistent records and
-state changes, secret and real-world data, malformed answers, provider errors, timeouts), `test_synthesis.py`
-(wiring, cache, cap, API, factory) and a real-Docker test through the SSH gateway.
-
-### 10.1 Phase 6: the dashboard (done)
-
-`frontend/`: React + TypeScript + Tailwind, built with Vite; the dev server proxies `/api` (REST and WebSocket) to the
-API, both on loopback. Views: overview with live feed, sessions, session replay with the execution inspector,
-environment tree (base / visited / overlay), environments (build, validate, publish).
-
-| Piece | Where | Notes |
-|---|---|---|
-| Tree state | `GET /sessions/{id}/tree-state` | base nodes + visits (events linked to nodes) + overlay (latest operation per path, new files included) |
-| Live feed | `WS /api/v1/ws/events` (`api/live.py`) | key in the first message, 4401 if wrong, 4403 for a foreign Origin; polls the database every second, so it sees events written by any process; audited (`live.connect`) |
-| CORS | `main.py` | only `HORNET_DASHBOARD_ORIGINS`; no cookies; `*` fails startup |
-| Safe rendering | `frontend/src/components/AttackerText.tsx`, `lib/text.ts` | text nodes only; ESLint forbids `dangerouslySetInnerHTML`, `innerHTML`, `insertAdjacentHTML`, `document.write`, `eval` |
-| Raw vs AI | `ExecutionInspector.tsx` | two separate panels; tested |
-
-**Tests:** `backend/tests/test_dashboard_api.py` (tree state, live feed auth/origin/delivery under 2 s, no
-duplicates, CORS); `frontend/src/test/` (XSS payloads through every component, raw/AI separation, replay of a
-session recorded through the real gateway by `scripts/seed_demo_session.py`).
-
----
-
-## 11. Admin API
-
-All routes are under `/api/v1`. Everything except `/health` needs `X-API-Key`.
+All routes are under `/api/v1`; everything except `/health` needs `X-API-Key`. OpenAPI docs at `/docs`.
 
 | Method and path | Purpose |
 |---|---|
 | `GET /health` | Database, runtime and gateway status (public) |
-| `POST /discovery/preview` | Discover + sanitize only; returns the sanitized profile, builds nothing |
-| `POST /environments/build` | `source: "seed"` (hand-written tree) or `"docker"` (discover, sanitize, build image) |
-| `GET /environments`, `GET /environments/{id}` | List / inspect snapshots (includes the build report) |
-| `POST /environments/{id}/validate`, `POST .../publish` | Validate; publish (explicit, atomic) |
-| `GET /environments/{id}/tree` | The base graph |
+| `POST /discovery/preview` | Discover and sanitize only; returns the sanitized profile |
+| `POST /environments/build` | `source: "docker"` (discover, sanitize, build image) or `"seed"` (hand-written tree, tests) |
+| `GET /environments`, `GET /environments/{id}`, `GET /environments/{id}/tree` | Snapshots and their base graph |
+| `POST /environments/{id}/validate`, `POST /environments/{id}/publish` | Validate; publish (atomic) |
+| `GET /sessions`, `GET /sessions/{id}` | Visits, with command and AI-suggestion counts |
+| `GET /sessions/{id}/executions` | Commands (redacted), raw output and, separately, AI proposals (audited) |
+| `GET /sessions/{id}/events`, `/overlay`, `/tree-state` | Timeline, file changes, tree with markers |
 | `POST /sessions`, `POST /sessions/{id}/exec`, `DELETE /sessions/{id}` | Admin test console for a twin |
-| `GET /sessions`, `GET /sessions/{id}`, `GET /sessions/{id}/events` | Sessions and their timelines |
-| `GET /gateway/events` | Connections, logins (filter by type or IP) |
-| `GET /analytics/overview`, `GET /audit` | Counts; administrator audit log |
-| `GET /sessions/{id}/executions`, `GET /sessions/{id}/overlay`, `GET /sessions/{id}/tree-state` | Commands with raw output and separate AI proposals (audited); file changes; tree with visited/overlay markers |
-| `WS /ws/events` | Live feed for the dashboard (key in the first message) |
-
-OpenAPI docs: `/docs`. Attacker-supplied text inside events must always be escaped when rendered.
+| `GET /gateway/events` | Connections and login attempts |
+| `GET /analytics/overview`, `GET /audit` | Counts; the administrator audit log |
+| `WS /ws/events` | Live feed (key in the first message) |
 
 ---
 
-## 12. Configuration (environment variables, prefix `HORNET_`)
+## 13. Configuration (prefix `HORNET_`, in `.env`)
 
 | Group | Settings |
 |---|---|
-| Core | `ENV` (dev/prod), `DATABASE_URL`, `ADMIN_API_KEY` (required, 16+ chars) |
-| Twin runtime | `TWIN_BASE_IMAGE`, `TWIN_TIMEOUT_MS`, `TWIN_OUTPUT_LIMIT_BYTES`, `TWIN_MEMORY_MB`, `TWIN_CPUS`, `TWIN_PIDS`, `TWIN_TMPFS_MB`, `MAX_ACTIVE_SESSIONS`, `SESSION_TTL_S`, `IDLE_TTL_S` |
+| Core | `ENV` (`dev` = demo profile, `prod`), `DATABASE_URL`, `ADMIN_API_KEY` (16+ chars) |
+| Twin limits | `TWIN_BASE_IMAGE`, `TWIN_TIMEOUT_MS`, `TWIN_OUTPUT_LIMIT_BYTES`, `TWIN_MEMORY_MB`, `TWIN_CPUS`, `TWIN_PIDS`, `TWIN_TMPFS_MB`, `MAX_ACTIVE_SESSIONS`, `SESSION_TTL_S`, `IDLE_TTL_S` |
 | Discovery / build | `DISCOVERY_ALLOWED_PROJECTS`, `BUILD_DIR` |
-| AI | `AI_PROVIDER` (template/nim), `NVIDIA_API_KEY`, `NIM_MODEL`, `NIM_BASE_URL`, `NIM_TIMEOUT_S`, `NIM_MAX_TOKENS`, `AI_SANITIZER_MODE` (required/advisory/off) |
+| AI | `AI_PROVIDER` (`template`/`nim`), `NVIDIA_API_KEY`, `NIM_MODEL`, `NIM_BASE_URL`, `NIM_TIMEOUT_S`, `NIM_MAX_TOKENS`, `AI_SANITIZER_MODE`, `AI_SYNTH_ENABLED`, `AI_SYNTH_TIMEOUT_S`, `AI_SYNTH_MAX_PER_SESSION`, `NIM_SYNTH_MODEL` |
 | Gateway | `GATEWAY_ENABLED`, `GATEWAY_HOST`, `GATEWAY_PORT`, `GATEWAY_HOST_KEY_PATH`, `GATEWAY_SERVER_VERSION`, `GATEWAY_ACCEPT_AFTER`, `GATEWAY_WEAK_PASSWORDS`, `GATEWAY_LOG_PASSWORDS`, `GATEWAY_MAX_CONNECTIONS_PER_IP`, `GATEWAY_LOGIN_TIMEOUT_S` |
-| Recorded data | `STORE_RAW_COMMANDS` (default off), `RETENTION_DAYS` (default 30) |
-
-Run instructions and things to try are in `README.md`.
-
----
-
-## 13. Security model
-
-### 13.1 What is enforced
-- Twins have no network, no mounts, no Docker socket and no capabilities; commands are time-, memory-, process- and output-limited by server policy.
-- Discovery is read-only, allowlisted, and never reads environment values.
-- Sanitization is layered; the AI sees only redacted text and cannot add data; deterministic checks run last.
-- Snapshots are immutable; evidence tables are append-only.
-- The attacker cannot read or stop the fake services, or reach the host, the gateway or other sessions.
-- The gateway binds to loopback unless `ENV=prod`.
-- API keys are masked secrets, kept in `.env`, never logged.
-
-### 13.2 What is not protected (be aware)
-- **Windows isolation is the weaker kind** (shared kernel with the Docker Desktop VM).
-- **A careful attacker can tell it's a honeypot:** `uname -r` shows a WSL2 kernel; `ps` shows the emulator process; the emulator files live under `/usr/share/hornet`; the SSH handshake is asyncssh behind an OpenSSH-style banner.
-- The login name is cosmetic (the shell is always the unprivileged `user`).
-- No interactive programs (`vim`, `top`, password prompts); Ctrl-C doesn't interrupt a running command; output is decoded as UTF-8 text so binary output is corrupted.
-- A hosted NIM model receives sanitized metadata; for sensitive servers use a self-hosted NIM.
-- The regex scanner is heuristic, not a guarantee.
-- Container escape and egress abuse are not quantified; a Linux evaluation is Phase 7.
+| Recorded data | `STORE_RAW_COMMANDS` (off; refused in the demo profile), `RETENTION_DAYS` (30) |
+| Dashboard | `DASHBOARD_ORIGINS` (loopback only in the demo profile) |
 
 ---
 
-## 14. Testing (399 tests, all passing)
+## 14. Security
 
-| File | Tests | Covers |
+The full threat model is in [docs/threat-model.md](docs/threat-model.md); known gaps in
+[docs/limitations.md](docs/limitations.md). In short: attacker input runs only in a locked-down, network-less twin;
+discovery is read-only and allowlisted; secrets are redacted before any model sees anything, and canaries are tested
+across every output; models never execute anything and their output is validated and kept apart from evidence;
+everything binds to loopback in the demo profile, which refuses to start with unsafe settings. **Not protected:** a
+kernel exploit with the default runc driver (shared kernel; gVisor narrows it), and a careful attacker noticing
+the honeypot. Phase H (done, awaiting approval) added gVisor, the escape suite, database guards and a deployment
+design; see [threat-model.md](docs/threat-model.md) section 7.
+
+---
+
+## 15. Testing
+
+| Area | Files | Tests |
 |---|---|---|
-| `test_sanitization.py` | 60 | Detectors, classification, read-only discovery, the canary leak test |
-| `test_nim_and_ai_review.py` | 50 | NIM client (mock transport), AI review rules, regressions found live |
-| `test_generic_shapes.py` | 49 | Any server shape, data models, role detection |
-| `test_environment.py` | 44 | Builder, validator, AI documents, pipeline, failure paths |
-| `test_emulator.py` | 37 | HTTP, Redis, PostgreSQL protocols over real sockets |
-| `test_stateful_shell.py` | 30 | Shell state, graph linking, service events |
-| `test_api.py` | 24 | Endpoints, auth, hermetic-test guard |
-| `test_session_manager.py` | 23 | Lifecycle, limits, reaper, failure handling |
-| `test_gateway.py` | 20 | SSH server with a real client (in-memory runtime) |
-| `test_docker_gateway.py` | 18 | **Real Docker:** SSH into real twins, both demo servers |
-| `test_graph.py` | 17 | Path and tree rules |
-| `test_docker_isolation.py` | 13 | **Real Docker:** hostile commands |
-| `test_immutability.py` | 7 | Snapshot and append-only guards |
-| `test_docker_build.py` | 4 | **Real Docker:** discovery to image to twin, both demo servers |
-| `test_fsdiff.py` | 3 | Filesystem diff |
+| Sanitization and AI review | `test_sanitization.py`, `test_nim_and_ai_review.py` | 116 |
+| Building any server shape | `test_generic_shapes.py`, `test_environment.py`, `test_graph.py` | 111 |
+| AI synthesis | `ai_consistency/`, `test_synthesis.py` | 54 |
+| Fake services | `test_emulator.py` | 45 |
+| Sessions, shell, gateway (in-memory runtime) | `test_session_manager.py`, `test_stateful_shell.py`, `test_gateway.py` | 74 |
+| API, dashboard backend, safety, storage, config | `test_api.py`, `test_dashboard_api.py`, `test_demo_safety.py`, `test_command_storage.py`, `test_immutability.py`, `test_config_envfile.py`, `test_fsdiff.py` | 74 |
+| Production profile, deployment files | `test_prod_profile.py`, `test_deployment_files.py` | 15 |
+| **Real Docker** | `test_docker_isolation.py`, `test_docker_gateway.py`, `test_docker_build.py` (also under gVisor), `test_docker_hardening.py` (runc and gVisor) | 110 |
+| **PostgreSQL 16** (throwaway container) | `test_postgres.py` | 5 |
+| Dashboard | `frontend/src/test/` (XSS, raw-vs-AI separation, replay of a recorded session, plain English, theme, contrast) | 64 |
 
-- 35 tests need Docker and the demo stacks; they skip themselves if those are missing.
-- **The suite is hermetic:** it ignores your `.env` AI settings and key and never calls a real model.
-- Run: `.\.venv\Scripts\python.exe -m pytest backend/tests` (about 2 minutes with Docker).
-- **Not yet tested:** Linux, CI, PostgreSQL migration 0003, more than one Docker host.
-
----
-
-## 15. Known gaps and risks
-
-| Item | Detail |
-|---|---|
-| Phase 5B not built | The attacker still gets the controlled error; the AI proposal is only stored (5A) |
-| Phase 0 incomplete | No CI, no `scripts/dev.py`, no pre-commit/mypy (AGENTS.md lists them) |
-| Linux / CI untested | Everything was verified on Windows 11 only |
-| Fingerprinting | See section 13.2; a Phase 7 item |
-| Single process | Sessions live in memory; an API restart destroys every twin; one process per Docker host |
-| AI quality | Model sanitization checked on two small demo servers; it produces harmless false positives |
-| AI latency | Builds take about 1.5 to 2 minutes with the current reasoning model |
-| Prior art | TwinPot-Gen and HoneyLLM were read only at abstract level; CounterCraft is closed commercial. Re-check novelty claims before final writing |
+Tests are hermetic: they never read the developer's `.env` settings or call a real model. Docker tests skip when
+Docker or a demo stack is missing; the CI Docker job fails on any skip.
 
 ---
 
 ## 16. What comes next
 
-1. **Phase 5: AI synthesis** (section 10). Start by choosing a fast model and defining the request/response bridge.
-2. **Phase 6: Dashboard.** Done (section 10.1).
-3. **Phase 7: Hardening and evaluation (Linux).** gVisor or a microVM; fingerprint resistance; escape/egress suites; comparison against Cowrie, an LLM-only shell and a real Ubuntu control; an AI-attacker detection test.
-4. **Phase 8: Capstone documents.** Threat model, user guide, evaluation report, demo script.
-
-Related documents: `README.md` (how to run and try it), `AGENTS.md` (rules and phase plan), `reports/LLM honeypot digital twin prior work.md` (novelty research), `Research and Limitations.xlsx` (per-paper and per-product limitations).
+1. **Phase H approval**, then, only if wanted, a supervised exposure window on a dedicated server following
+   `deployment/README.md`. Structural next step for longer runs: split the SSH gateway from the admin API.
+2. **Optional backlog:** live AI serving (5B), gateway events view, ATT&CK tags, a fuller evaluation with baselines
+   (Cowrie, an LLM-only shell, a real host), slides, flagging more PostgreSQL gaps in the emulator.

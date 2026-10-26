@@ -1,5 +1,6 @@
 """Validated settings. Unsafe configuration fails startup (AGENTS.md rule)."""
 import logging
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -29,15 +30,31 @@ def resolve_database_url(url: str) -> str:
 log = logging.getLogger("hornet.config")
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+# where secret files are read from: Docker/Kubernetes mount /run/secrets; systemd LoadCredential= uses
+# $CREDENTIALS_DIRECTORY (see deployment/hornet.service)
+SECRETS_DIR = os.environ.get("HORNET_SECRETS_DIR") or os.environ.get("CREDENTIALS_DIRECTORY") or "/run/secrets"
 # the demo profile's ceilings: the defaults below; HORNET_ENV=dev may only make them tighter
 DEMO_LIMITS = {"twin_timeout_ms": 5000, "twin_output_limit_bytes": 65536, "twin_memory_mb": 128, "twin_cpus": 0.5,
                "twin_pids": 64, "twin_tmpfs_mb": 16, "max_active_sessions": 5, "session_ttl_s": 900, "idle_ttl_s": 300}
+
+def database_url_from_environment(default: str = "sqlite:///./hornet_dev.db") -> str:
+    """The database URL without loading all settings (alembic needs no admin key): the environment variable, else a
+    secret file `hornet_database_url` (Docker/Kubernetes secrets, systemd credentials), else the default."""
+    url = os.environ.get("HORNET_DATABASE_URL")
+    if not url:
+        secret = Path(SECRETS_DIR) / "hornet_database_url"
+        url = secret.read_text(encoding="utf-8").strip() if secret.is_file() else default
+    return resolve_database_url(url)
+
 
 _PLACEHOLDER_KEYS = {"change-me", "changeme", "admin", "password", "secret", "test"}
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="HORNET_", env_file=ENV_FILES, env_file_encoding="utf-8-sig", extra="ignore")
+    # Secrets may also come from files named like the setting (e.g. /run/secrets/hornet_admin_api_key), as mounted by
+    # Docker or Kubernetes secrets; environment variables and .env still take precedence.
+    model_config = SettingsConfigDict(env_prefix="HORNET_", env_file=ENV_FILES, env_file_encoding="utf-8-sig",
+                                      extra="ignore", secrets_dir=SECRETS_DIR if Path(SECRETS_DIR).is_dir() else None)
 
     env: Literal["dev", "prod"] = "dev"
     database_url: str = "sqlite:///./hornet_dev.db"
@@ -46,7 +63,7 @@ class Settings(BaseSettings):
     page_size_max: int = 200
 
     # --- twin runtime (server-side policy; never taken from attacker input) ---
-    runtime_driver: Literal["docker"] = "docker"
+    runtime_driver: Literal["docker", "gvisor"] = "docker"  # gvisor: Docker's runsc runtime (Linux), see Phase H6
     twin_base_image: str = "hornet-twin-base:2"
     twin_timeout_ms: int = 5000
     twin_output_limit_bytes: int = 65536
@@ -103,6 +120,7 @@ class Settings(BaseSettings):
     # --- recorded attacker data (README "Command storage") ---
     store_raw_commands: bool = False  # commands are always stored with credentials redacted; this adds the raw text
     retention_days: int = Field(default=30, ge=1, le=3650)  # `python -m scripts.dev purge` deletes older sessions
+    retention_auto: bool = False  # also purge automatically, once an hour (required in prod)
 
     def weak_passwords(self) -> set[str]:
         return {p for p in self.gateway_weak_passwords.split(",") if p}
@@ -129,9 +147,8 @@ class Settings(BaseSettings):
     def _prod_rules(self) -> "Settings":
         if self.env == "prod" and self.database_url.startswith("sqlite"):
             raise ValueError("SQLite is not allowed when HORNET_ENV=prod")
-        if self.env == "prod" and self.store_raw_commands:
-            log.warning("HORNET_STORE_RAW_COMMANDS is on in prod: unredacted attacker input (possibly third-party "
-                        "credentials) will be stored")
+        if self.env == "prod":
+            self._prod_profile()
         self.execution_policy()  # raises if any limit is outside the hard bounds
         if self.gateway_enabled and self.gateway_host not in ("127.0.0.1", "::1", "localhost") and self.env != "prod":
             raise ValueError("the SSH gateway may only bind to loopback outside HORNET_ENV=prod (AGENTS.md rule 10)")
@@ -145,6 +162,26 @@ class Settings(BaseSettings):
             if not self.nim_base_url.startswith(("https://", "http://localhost", "http://127.0.0.1")):
                 raise ValueError("HORNET_NIM_BASE_URL must be https (plain http is allowed for localhost only)")
         return self
+
+    def _prod_profile(self) -> None:
+        """HORNET_ENV=prod (Phase H3): a deliberate deployment. Unsafe choices fail startup; sensitive-but-legitimate
+        research choices are allowed with a warning in the log."""
+        problems = []
+        if len(self.admin_api_key) < 32:
+            problems.append("HORNET_ADMIN_API_KEY must be at least 32 characters in prod")
+        if any(not o.startswith("https://") for o in self.dashboard_origin_list()):
+            problems.append("dashboard origins must be https:// in prod (HORNET_DASHBOARD_ORIGINS)")
+        if self.ai_provider == "nim" and self.ai_sanitizer_mode != "required":
+            problems.append("with an AI model, HORNET_AI_SANITIZER_MODE must be 'required' in prod")
+        if not self.retention_auto:
+            problems.append("automatic retention must be on in prod (HORNET_RETENTION_AUTO=true)")
+        if problems:
+            raise ValueError("unsafe production configuration: " + "; ".join(problems))
+        if self.store_raw_commands:
+            log.warning("HORNET_STORE_RAW_COMMANDS is on in prod: unredacted attacker input (possibly third-party "
+                        "credentials) will be stored")
+        if self.gateway_log_passwords:
+            log.warning("HORNET_GATEWAY_LOG_PASSWORDS is on in prod: attempted passwords are stored as text")
 
     def _demo_safety(self) -> None:
         """HORNET_ENV=dev is the demo profile on a developer machine (AGENTS.md rule 10). It may tighten anything but
@@ -168,6 +205,8 @@ class Settings(BaseSettings):
         policy = self.execution_policy()
         return {
             "profile": self.env,
+            "twin runtime": ("gVisor (runsc): own user-space kernel" if self.runtime_driver == "gvisor"
+                             else "hardened Docker (runc): shares the host kernel"),
             "ssh gateway": f"{'on' if self.gateway_enabled else 'off'}, {self.gateway_host}:{self.gateway_port}",
             "dashboard origins": ", ".join(self.dashboard_origin_list()),
             "twin limits": (f"{policy.timeout_ms} ms per command, {policy.memory_mb} MB, {policy.cpus} CPU, "
@@ -175,7 +214,7 @@ class Settings(BaseSettings):
             "sessions": f"at most {policy.max_active_sessions} at once, {policy.session_ttl_s} s max, {policy.idle_ttl_s} s idle",
             "commands stored": "redacted only" if not self.store_raw_commands else "redacted + RAW",
             "login passwords stored": "as text" if self.gateway_log_passwords else "length + hash only",
-            "retention": f"{self.retention_days} days (python -m scripts.dev purge)",
+            "retention": f"{self.retention_days} days ({'automatic, hourly' if self.retention_auto else 'manual: python -m scripts.dev purge'})",
             "ai": f"{self.ai_provider}; sanitizer review {self.sanitizer_mode}; synthesis {'on' if self.ai_synth_enabled else 'off'}",
         }
 
@@ -202,4 +241,4 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()  # type: ignore[call-arg]
+    return Settings()  # admin_api_key comes from the environment or .env

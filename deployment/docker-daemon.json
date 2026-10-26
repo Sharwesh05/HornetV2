@@ -1,0 +1,15 @@
+{
+  "runtimes": {
+    "runsc": {
+      "path": "/usr/local/bin/runsc",
+      "runtimeArgs": ["--network=none"]
+    }
+  },
+  "icc": false,
+  "no-new-privileges": true,
+  "live-restore": true,
+  "userland-proxy": false,
+  "log-driver": "local",
+  "log-opts": { "max-size": "10m", "max-file": "3" },
+  "default-ulimits": { "nofile": { "Name": "nofile", "Soft": 1024, "Hard": 2048 } }
+}

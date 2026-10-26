@@ -8,7 +8,7 @@ people used everywhere else (emails in logs, SQL and configs).
 """
 import re
 from collections import defaultdict
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
@@ -18,7 +18,7 @@ from app.environment.synthetic_data import Synth
 from app.profile import SanitizedProfile
 
 ColumnType = Literal["id", "int", "email", "name", "text", "status", "amount", "timestamp", "code", "bool", "ref"]
-COLUMN_TYPES = list(ColumnType.__args__)
+COLUMN_TYPES = list(get_args(ColumnType))
 _IDENT = re.compile(r"^[a-z][a-z0-9_]{0,30}$")
 _RESERVED = {
     "select", "table", "user", "order", "group", "from", "where", "insert", "update", "delete", "index", "key",
@@ -230,7 +230,7 @@ def generate_rows(model: DataModel, synth: Synth, people: list[Person]) -> dict[
                     row[c.name] = f"{table.name[:3].upper()}-{1000 + i}"
                 elif c.type == "bool":
                     row[c.name] = synth.rng.choice([0, 1])
-                elif c.type == "ref":
+                elif c.type == "ref" and c.ref is not None:  # the model validator guarantees a target
                     row[c.name] = synth.rng.choice(rows[c.ref])["id"]
             out.append(row)
         rows[name] = out

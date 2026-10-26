@@ -16,8 +16,10 @@ Order matters and is the safety argument:
 The model's output is validated in ordinary code; prompts are not a security boundary.
 """
 from collections import Counter
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
@@ -86,9 +88,9 @@ class ReviewStats:
     rejected: int = 0
     env_raised: int = 0
     errors: int = 0
-    by_category: Counter = field(default_factory=Counter)
+    by_category: Counter[str] = field(default_factory=Counter)
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "requested": True, "provider": self.provider, "mode": self.mode, "calls": self.calls,
             "findings_applied": self.applied, "findings_rejected": self.rejected,
@@ -102,8 +104,20 @@ class _Field:
     id: str
     kind: str
     text: str
-    set: callable  # writes the cleaned text back
+    set: Callable[[str], None]  # writes the cleaned text back
     guarded: bool = True  # structural fields (paths, commands) must not be wiped out; label values may be
+
+
+def _set_attr(obj: Any, attr: str) -> Callable[[str], None]:
+    def write(value: str) -> None:
+        setattr(obj, attr, value)
+    return write
+
+
+def _set_item(container: Any, key: Any) -> Callable[[str], None]:
+    def write(value: str) -> None:
+        container[key] = value
+    return write
 
 
 def _fields(svc: ServiceSpec) -> list[_Field]:
@@ -111,18 +125,19 @@ def _fields(svc: ServiceSpec) -> list[_Field]:
     for attr in ("workdir", "user", "healthcheck"):
         val = getattr(svc, attr)
         if val:
-            out.append(_Field(attr, attr, val, lambda v, a=attr: setattr(svc, a, v)))
+            out.append(_Field(attr, attr, val, _set_attr(svc, attr)))
     for attr in ("command", "entrypoint"):
-        for i, val in enumerate(getattr(svc, attr)):
-            out.append(_Field(f"{attr[:3]}{i}", f"{attr}_arg", val, lambda v, a=attr, j=i: getattr(svc, a).__setitem__(j, v)))
+        args = getattr(svc, attr)
+        for i, val in enumerate(args):
+            out.append(_Field(f"{attr[:3]}{i}", f"{attr}_arg", val, _set_item(args, i)))
     for i, val in enumerate(svc.fs_hints):
-        out.append(_Field(f"fs{i}", "path", val, lambda v, j=i: svc.fs_hints.__setitem__(j, v)))
+        out.append(_Field(f"fs{i}", "path", val, _set_item(svc.fs_hints, i)))
     for i, m in enumerate(svc.mounts):
-        out.append(_Field(f"mt{i}", "mount_destination", m.destination, lambda v, mm=m: setattr(mm, "destination", v)))
+        out.append(_Field(f"mt{i}", "mount_destination", m.destination, _set_attr(m, "destination")))
     for i, key in enumerate(list(svc.labels)):
         if key.startswith("com.docker.compose."):
             continue  # structural bookkeeping the builder relies on: never sent, never altered
-        out.append(_Field(f"lv{i}", "label_value", svc.labels[key], lambda v, k=key: svc.labels.__setitem__(k, v), guarded=False))
+        out.append(_Field(f"lv{i}", "label_value", svc.labels[key], _set_item(svc.labels, key), guarded=False))
     return out
 
 
@@ -151,7 +166,7 @@ def _apply(fields: list[_Field], findings: list[_Finding], keep_terms: list[str]
             and not _is_kept(sub, keep_terms)         # project/service names are the identity we imitate
             and (f.confidence is None or f.confidence >= 0.5)
         )
-        if not ok:
+        if not ok or fld is None:
             stats.rejected += 1
             continue
         per_field.setdefault(fld.id, []).append((sub, f.category if f.category in CATEGORIES else "other"))
@@ -176,7 +191,7 @@ def _apply(fields: list[_Field], findings: list[_Finding], keep_terms: list[str]
         fld.text = text
 
 
-def _ask(svc: ServiceSpec, keep_terms: list[str], provider: AIProvider) -> dict | None:
+def _ask(svc: ServiceSpec, keep_terms: list[str], provider: AIProvider) -> dict[str, Any] | None:
     """One model call for one service (runs in a worker thread; touches no shared state)."""
     fields = _fields(svc)
     if not fields and not svc.env_names:
@@ -200,7 +215,7 @@ def review_profile(profile: SanitizedProfile, provider: AIProvider, mode: str) -
     keep_terms = sorted({out.source, *(s.name for s in out.services)})
 
     # model calls run in parallel (they dominate the time); results are applied in service order
-    def call(svc):
+    def call(svc: ServiceSpec) -> tuple[dict[str, Any] | None, Exception | None]:
         try:
             return _ask(svc, keep_terms, provider), None
         except Exception as exc:  # noqa: BLE001  (any failure of the model path is handled by mode below)

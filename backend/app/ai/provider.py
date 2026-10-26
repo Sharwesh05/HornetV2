@@ -5,7 +5,7 @@ sanitized, minimal context, can only return JSON, and its output is validated in
 (ai/doc_validator.py) before anything is used. A remote LLM provider is added in Phase 5; until then
 the deterministic TemplateProvider means the whole system works offline.
 """
-from typing import Protocol
+from typing import Any, Protocol
 
 AI_POLICY_VERSION = "phase3-docs-v1"
 
@@ -37,7 +37,8 @@ class AIProvider(Protocol):
     version: str
     is_model: bool  # True for a real model (it can review data); False for the offline template provider
 
-    def generate_structured(self, *, system_policy: str, context: dict, output_schema: dict) -> dict: ...
+    def generate_structured(self, *, system_policy: str, context: dict[str, Any],
+                            output_schema: dict[str, Any]) -> dict[str, Any]: ...
 
 
 class TemplateProvider:
@@ -47,7 +48,8 @@ class TemplateProvider:
     version = "1"
     is_model = False
 
-    def generate_structured(self, *, system_policy: str, context: dict, output_schema: dict) -> dict:
+    def generate_structured(self, *, system_policy: str, context: dict[str, Any],
+                            output_schema: dict[str, Any]) -> dict[str, Any]:
         if context.get("task") != "documents":
             return {}  # the offline provider proposes nothing else: callers fall back to their defaults
         services = context["services"]

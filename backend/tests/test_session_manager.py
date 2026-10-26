@@ -139,6 +139,18 @@ def test_a_twin_that_ran_out_of_processes_is_failed_not_left_wedged(db, publishe
         mgr.execute(s.id, "echo hi")
 
 
+def test_a_twin_whose_sandbox_stopped_after_the_command_is_failed(db, published, session_factory):
+    """Regression (gVisor): the fork bomb returns exit 0 at once and the sandbox dies a moment later."""
+    mgr, driver = make(session_factory)
+    s = mgr.create_session()
+    out = mgr.execute(s.id, "sandbox-dies")
+    assert out.runtime_killed and s.runtime_id in driver.destroyed and mgr.active_count() == 0
+    with session_factory() as v:
+        assert v.get(HoneypotSession, s.id).end_reason == "limit exceeded: runtime stopped"
+    with pytest.raises(sm.SessionNotUsable):
+        mgr.execute(s.id, "echo hi")
+
+
 def test_a_busy_but_healthy_twin_is_not_mistaken_for_exhausted(db, published, session_factory):
     mgr, driver = make(session_factory)
     s = mgr.create_session()

@@ -24,8 +24,11 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       HORNET_ENV: prod
-      HORNET_ADMIN_API_KEY: ${HORNET_ADMIN_API_KEY:?set HORNET_ADMIN_API_KEY in .env}
+      HORNET_ADMIN_API_KEY: ${HORNET_ADMIN_API_KEY:?set HORNET_ADMIN_API_KEY in .env (32+ characters in prod)}
       HORNET_DATABASE_URL: postgresql+psycopg://hornet:${POSTGRES_PASSWORD}@db:5432/hornet
+      # prod rules (Phase H3): https dashboard origins and automatic retention are required
+      HORNET_DASHBOARD_ORIGINS: ${HORNET_PROD_DASHBOARD_ORIGINS:-https://hornet.vpn.internal}
+      HORNET_RETENTION_AUTO: "true"
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

@@ -196,7 +196,7 @@ def build_postgres(ctx: Ctx, spec: ServiceSpec, sp: ServicePlan) -> None:
 
     pgpass = "/home/user/.pgpass"  # bait an attacker will find in their own home
     line = f"{sp.name}:5432:{db}:{db}:{pw}\n"
-    prior = plan.files[pgpass].content if pgpass in plan.files else ""
+    prior = (plan.files[pgpass].content or "") if pgpass in plan.files else ""
     plan.add_file(pgpass, prior + line, 0o600, 1000, 1000, sensitivity="synthetic-sensitive")
     plan.expect(pgpass, f"{sp.name}.password")
 

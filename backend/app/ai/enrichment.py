@@ -1,6 +1,7 @@
 """Ask the AI provider for extra documents, validate them, and add the accepted ones to the plan.
 A provider failure or a rejected document never fails the build: the plan is complete without them."""
 from dataclasses import dataclass, field
+from typing import Any
 
 from app.ai.doc_validator import validate_documents
 from app.ai.provider import AI_POLICY_VERSION, DOCUMENT_SCHEMA, SYSTEM_POLICY, AIProvider
@@ -17,11 +18,11 @@ class EnrichmentReport:
     rejected_reasons: list[str] = field(default_factory=list)
     error: str | None = None
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return self.__dict__.copy()
 
 
-def build_context(plan: EnvPlan, profile: SanitizedProfile, db_name: str) -> dict:
+def build_context(plan: EnvPlan, profile: SanitizedProfile, db_name: str) -> dict[str, Any]:
     """Minimal context: sanitized facts and fictional people only. No env values, no fake secrets."""
     return {
         "task": "documents",

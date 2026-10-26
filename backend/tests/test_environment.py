@@ -292,6 +292,18 @@ def test_second_build_is_a_new_version_and_never_replaces_the_published_one(db, 
     assert first.status == "published"
 
 
+def test_every_build_gets_its_own_image_tag(db, tmp_path):
+    """Regression (found while rehearsing the demo): every build of the same server used the same tag, so a rebuild
+    took the tag from the published environment's image, which `docker image prune` would then delete."""
+    builder = FakeImageBuilder()
+    _build(db, tmp_path, builder=builder)
+    _build(db, tmp_path / "again", builder=builder)
+    (tag1, _), (tag2, _) = builder.built
+    assert tag1 != tag2
+    assert all(t.startswith("hornet-twin:") and t.split(":", 1)[1].startswith(t.split(":", 1)[1][:12]) for t in (tag1, tag2))
+    assert tag1.split(":", 1)[1][:12] == tag2.split(":", 1)[1][:12]  # same server, same readable prefix
+
+
 def test_unlisted_project_is_refused_and_builds_nothing(db, tmp_path):
     from app.discovery.docker_inventory import DiscoveryNotAllowed
 

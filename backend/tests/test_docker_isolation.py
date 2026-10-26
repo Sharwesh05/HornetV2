@@ -10,6 +10,7 @@ import pytest
 from app import services
 from app.orchestration import session_manager as sm
 from app.runtime.policy import ExecutionPolicy
+from tests.helpers_runtime import TEST_RUNTIME
 
 IMAGE = "hornet-twin-base:2"
 
@@ -42,12 +43,12 @@ def published(db):
 
 @pytest.fixture
 def make_mgr(session_factory):
-    from app.runtime.docker_driver import HardenedDockerDriver
+    from tests.helpers_runtime import twin_driver
 
     created = []
 
     def _make(**policy):
-        mgr = sm.SessionManager(HardenedDockerDriver(), session_factory, ExecutionPolicy(**policy), IMAGE)
+        mgr = sm.SessionManager(twin_driver(), session_factory, ExecutionPolicy(**policy), IMAGE)
         created.append(mgr)
         return mgr
 
@@ -123,7 +124,8 @@ def test_read_only_rootfs_and_writable_tmpfs_with_size_limit(twin):
 def test_no_capabilities_no_privilege_escalation(twin):
     status = run(twin, "grep -E 'CapEff|CapBnd|NoNewPrivs' /proc/self/status").stdout
     assert "CapEff:\t0000000000000000" in status
-    assert "NoNewPrivs:\t1" in status
+    # gVisor does not report NoNewPrivs in /proc; test_docker_hardening checks it through the Docker API there
+    assert "NoNewPrivs:\t1" in status or TEST_RUNTIME == "gvisor"
     assert run(twin, "find / -xdev -type f -perm /6000 2>/dev/null | wc -l").stdout.strip() == "0"
     assert run(twin, "su -c id").exit_code != 0
     assert run(twin, "mount -t tmpfs none /mnt").exit_code != 0

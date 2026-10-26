@@ -10,6 +10,8 @@ import hashlib
 import json
 import re
 from collections import Counter
+from collections.abc import Iterator
+from typing import Any
 
 from app.environment.role_detect import detect_role
 from app.profile import (
@@ -158,7 +160,7 @@ def profile_hash(profile: SanitizedProfile) -> str:
 _SKIP_KEYS = {"env_names", "env_classes", "profile_hash", "report"}  # names/hashes/counts, no free text
 
 
-def _strings(obj, skip: bool = True):
+def _strings(obj: Any, skip: bool = True) -> Iterator[str]:
     """Yield every free-text string in a dumped profile (dict keys of labels included)."""
     if isinstance(obj, str):
         yield obj

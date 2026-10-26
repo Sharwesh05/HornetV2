@@ -53,13 +53,14 @@ def _poll(factory: sessionmaker[Session], since: datetime, seen: dict[uuid.UUID,
                 seen[ev.id] = _aware(ev.occurred_at)
                 out.append({"type": "session_event", "id": ev.id, "session_id": ev.session_id, "node_id": ev.node_id,
                             "event_type": ev.event_type, "metadata": ev.meta, "occurred_at": _aware(ev.occurred_at)})
-        for ev in db.scalars(select(GatewayEvent).where(GatewayEvent.occurred_at >= since)
-                             .order_by(GatewayEvent.occurred_at).limit(BATCH)):
-            if ev.id not in seen:
-                seen[ev.id] = _aware(ev.occurred_at)
-                out.append({"type": "gateway_event", "id": ev.id, "session_id": ev.session_id,
-                            "connection_id": ev.connection_id, "source_ip": ev.source_ip,
-                            "event_type": ev.event_type, "metadata": ev.meta, "occurred_at": _aware(ev.occurred_at)})
+        for gev in db.scalars(select(GatewayEvent).where(GatewayEvent.occurred_at >= since)
+                              .order_by(GatewayEvent.occurred_at).limit(BATCH)):
+            if gev.id not in seen:
+                seen[gev.id] = _aware(gev.occurred_at)
+                out.append({"type": "gateway_event", "id": gev.id, "session_id": gev.session_id,
+                            "connection_id": gev.connection_id, "source_ip": gev.source_ip,
+                            "event_type": gev.event_type, "metadata": gev.meta,
+                            "occurred_at": _aware(gev.occurred_at)})
     out.sort(key=lambda e: e["occurred_at"])
     return out
 

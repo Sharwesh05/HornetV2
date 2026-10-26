@@ -1,6 +1,7 @@
 """Domain logic for snapshots and audit events (kept out of the API layer)."""
 import hashlib
 import json
+import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
@@ -47,11 +48,11 @@ def create_draft_snapshot(db: Session, nodes: list[tuple[str, str | None, str]] 
     )
     db.add(snap)
     db.flush()
-    ids = {}
+    ids: dict[str, uuid.UUID] = {}
     for path, parent, ntype in sorted(spec, key=lambda s: s[0].count("/")):
         node = VirtualNode(
             snapshot_id=snap.id,
-            parent_id=ids.get(parent),
+            parent_id=ids.get(parent) if parent else None,
             virtual_path=path,
             node_type=NodeType(ntype).value,
         )

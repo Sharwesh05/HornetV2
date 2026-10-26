@@ -1,4 +1,6 @@
-# Demo runbook (current state: Phase 6)
+# Demo runbook: the API walkthrough
+
+Step by step with `curl` against the admin API. For everyday use see the [user guide](user-guide.md); for the presentation, the [demo script](demo-script.md).
 
 This walks through what Hornet does **today**: observe a running Docker server, build a sanitized twin, let an
 "attacker" SSH into a disposable copy of it, and read back everything they did. Everything runs on your machine and

@@ -15,10 +15,10 @@ Measured 2026-10-21 05:51 UTC with `python -m scripts.evaluate` on Linux 7.2.10-
 | command | process | helpdesk-staging | 5 | 108 | 112 | 112 |
 | command | process | shop-prod | 5 | 112 | 121 | 121 |
 | command | read a file | helpdesk-staging | 5 | 103 | 116 | 116 |
-| command | read a file | shop-prod | 5 | 107 | 140 | 140 |
+| command | read a file | shop-prod | 5 | 108 | 140 | 140 |
 | command | shell builtin | helpdesk-staging | 5 | 100 | 143 | 143 |
 | command | shell builtin | shop-prod | 5 | 113 | 142 | 142 |
-| command | write a file | helpdesk-staging | 5 | 111 | 137 | 137 |
+| command | write a file | helpdesk-staging | 5 | 111 | 136 | 136 |
 | command | write a file | shop-prod | 5 | 103 | 120 | 120 |
 | session setup | until ready | helpdesk-staging | 10 | 423 | 473 | 473 |
 | session setup | until ready | shop-prod | 10 | 433 | 494 | 494 |
@@ -33,8 +33,9 @@ Out of band: the visitor never waits for these calls.
 
 | Model | Requests | Median (ms) | p95 (ms) | Accepted |
 |---|---|---|---|---|
-| nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning | 20 | 538 | 2767 | 8/20 |
-| nim:nvidia/nemotron-3-super-120b-a12b | 20 | 973 | 2342 | 17/20 |
-| nim:nvidia/nemotron-3.5-super-vl-120b-a12b | 20 | 869 | 3001 | 14/20 |
+| nim:nvidia/nemotron-3-nano-omni-30b-a3b-reasoning (2026-10-19) | 20 | 538 | 2767 | 8/20 |
+| nim:nvidia/nemotron-3-super-120b-a12b (2026-10-19) | 20 | 973 | 2342 | 17/20 |
+| nim:nvidia/nemotron-3.5-super-vl-120b-a12b (2026-10-20) | 20 | 869 | 3001 | 14/20 |
+| nim:nvidia/nemotron-3.5-super-vl-120b-a12b (2026-10-21) | 20 | 529 | 799 | 19/20 |
 
 Hosted-model numbers vary from day to day (free tier, shared capacity, rate limits); see `synthesis_latency.md`.

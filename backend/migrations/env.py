@@ -1,11 +1,10 @@
-import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import create_engine
 
 import app.models  # noqa: F401  (register tables)
-from app.config import resolve_database_url
+from app.config import database_url_from_environment
 from app.db import Base
 
 config = context.config
@@ -13,7 +12,7 @@ if config.config_file_name:
     fileConfig(config.config_file_name)
 
 # Migrations only need the database URL, not the full app settings (no admin key required).
-URL = resolve_database_url(os.environ.get("HORNET_DATABASE_URL", "sqlite:///./hornet_dev.db"))
+URL = database_url_from_environment()  # the env var, else a secret file (see deployment/), else the dev SQLite
 target_metadata = Base.metadata
 
 

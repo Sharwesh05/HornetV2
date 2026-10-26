@@ -1,0 +1,53 @@
+# Hornet on the honeypot host (Phase H7). Copy to /etc/systemd/system/hornet.service, review, then
+#   sudo systemctl daemon-reload && sudo systemctl enable --now hornet
+# Secrets are systemd credentials (files readable only by this service), never environment variables or .env.
+[Unit]
+Description=Hornet honeypot (admin API + SSH gateway)
+Documentation=file:///opt/hornet/deployment/README.md
+After=network-online.target docker.service wg-quick@wg0.service
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hornet
+Group=hornet
+# Docker group membership is root-equivalent on this host: that is why Hornet runs on a dedicated machine.
+SupplementaryGroups=docker
+WorkingDirectory=/opt/hornet
+EnvironmentFile=/etc/hornet/hornet.env
+LoadCredential=hornet_admin_api_key:/etc/hornet/credentials/admin_api_key
+LoadCredential=hornet_database_url:/etc/hornet/credentials/database_url
+LoadCredential=nvidia_api_key:/etc/hornet/credentials/nvidia_api_key
+# the admin API listens on the VPN address only; the gateway binds to the public port via HORNET_GATEWAY_HOST/PORT
+ExecStartPre=/opt/hornet/.venv/bin/python -m scripts.dev safety
+ExecStartPre=/opt/hornet/.venv/bin/python -m scripts.dev migrate
+ExecStart=/opt/hornet/.venv/bin/python -m uvicorn app.main:app --app-dir /opt/hornet/backend --host 10.66.0.1 --port 8000 --no-server-header
+Restart=on-failure
+RestartSec=5
+
+# binding the decoy to port 22 needs this one capability; nothing else
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/hornet/data
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

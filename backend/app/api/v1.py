@@ -80,6 +80,7 @@ def get_docker_services():
 def get_ai_provider(settings: Settings = Depends(get_settings)):
     """NVIDIA NIM when configured (HORNET_AI_PROVIDER=nim + NVIDIA_API_KEY), otherwise the offline template."""
     if settings.ai_provider == "nim":
+        assert settings.nvidia_api_key is not None  # guaranteed by Settings validation for ai_provider=nim
         return NimProvider(
             settings.nvidia_api_key.get_secret_value(), settings.nim_model, settings.nim_base_url,
             settings.nim_timeout_s, settings.nim_max_tokens,
@@ -157,7 +158,8 @@ def build_environment(
             raise HTTPException(422, {"stage": exc.stage, "message": str(exc),
                                       "errors": (exc.report.get("validation") or {}).get("errors", [])[:10]}) from None
 
-    nodes = [(n.path, n.parent_path, n.node_type) for n in body.nodes] if body.nodes else None
+    nodes: list[tuple[str, str | None, str]] | None = (
+        [(n.path, n.parent_path, str(n.node_type)) for n in body.nodes] if body.nodes else None)
     try:
         snap = services.create_draft_snapshot(db, nodes)
     except (PathError, ValueError) as exc:
@@ -391,14 +393,21 @@ def session_tree_state(session_id: uuid.UUID, db: Session = Depends(get_db)):
     basis: dict[uuid.UUID, set[str]] = {}
     for ev in db.scalars(select(SessionEvent).where(SessionEvent.session_id == session_id,
                                                     SessionEvent.node_id.is_not(None))):
-        visits[ev.node_id] = visits.get(ev.node_id, 0) + 1
-        basis.setdefault(ev.node_id, set()).add(
+        nid = ev.node_id
+        if nid is None:
+            continue
+        visits[nid] = visits.get(nid, 0) + 1
+        basis.setdefault(nid, set()).add(
             ev.meta.get("basis") or ("service-request" if ev.event_type.startswith("service.") else ev.event_type))
     # latest operation per path, in command order (overlay rows carry the request that caused them)
     order = {str(r.id): r.created_at for r in db.scalars(select(ExecutionRequest)
                                                           .where(ExecutionRequest.session_id == session_id))}
-    changes = sorted(db.scalars(select(SessionOverlay).where(SessionOverlay.session_id == session_id)),
-                     key=lambda o: (order.get(o.meta.get("request_id")) is None, order.get(o.meta.get("request_id")) or 0))
+
+    def when(o: SessionOverlay) -> tuple[bool, float]:
+        created = order.get(str(o.meta.get("request_id")))
+        return (created is None, created.timestamp() if created else 0.0)
+
+    changes = sorted(db.scalars(select(SessionOverlay).where(SessionOverlay.session_id == session_id)), key=when)
     overlay = {o.virtual_path: (o.operation, o.meta.get("kind")) for o in changes}
     nodes = [schemas.TreeStateNodeOut(
         id=n.id, parent_id=n.parent_id, path=n.virtual_path, type=n.node_type, in_base=True,
@@ -412,7 +421,8 @@ def session_tree_state(session_id: uuid.UUID, db: Session = Depends(get_db)):
             nodes.append(schemas.TreeStateNodeOut(id=None, parent_id=None, path=path, sensitivity="attacker-created",
                                                   type="directory" if kind == "d" else "file", in_base=False,
                                                   visits=0, basis=[], overlay=op))
-    return schemas.TreeStateOut(session_id=session_id, snapshot_id=sess.snapshot_id, version=snap.version, nodes=nodes)
+    return schemas.TreeStateOut(session_id=session_id, snapshot_id=sess.snapshot_id,
+                                version=snap.version if snap else 0, nodes=nodes)
 
 
 # ---- twin sessions (create / exec / destroy) -----------------------------------------------
@@ -434,13 +444,19 @@ def create_session(
 
 @admin.post("/sessions/{session_id}/exec", response_model=schemas.ExecOut)
 def exec_in_session(
-    session_id: uuid.UUID, body: schemas.ExecIn, mgr: sm.SessionManager = Depends(get_manager)
+    session_id: uuid.UUID, body: schemas.ExecIn, mgr: sm.SessionManager = Depends(get_manager),
+    actor: str = Depends(require_admin), db: Session = Depends(get_db),
 ):
-    """Admin console into a twin (testing). Attackers reach twins only through the gateway (Phase 4)."""
+    """Admin console into a twin (testing). Attackers reach twins only through the gateway (Phase 4). Every use is
+    audited, by request id only: the command itself is stored, redacted, with the session's evidence."""
     try:
         out = mgr.execute(session_id, body.command)
     except tuple(_SESSION_ERRORS) as exc:
+        services.audit(db, actor, "session.exec_refused", str(session_id), reason=type(exc).__name__)
+        db.commit()
         raise _http(exc) from None
+    services.audit(db, actor, "session.exec", str(session_id), request_id=str(out.request_id), exit_code=out.exit_code)
+    db.commit()
     return schemas.ExecOut(**{**out.__dict__, "fs_changes": [schemas.FsChangeOut(**c) for c in out.fs_changes]})
 
 
@@ -511,9 +527,9 @@ def audit_log(
 ):
     limit, offset = _page(settings, limit, offset)
     total = db.scalar(select(func.count()).select_from(AdminAuditEvent)) or 0
-    items = db.scalars(
+    items = list(db.scalars(
         select(AdminAuditEvent).order_by(AdminAuditEvent.occurred_at.desc()).limit(limit).offset(offset)
-    ).all()
+    ))
     return schemas.Page(items=items, total=total, limit=limit, offset=offset)
 
 

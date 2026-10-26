@@ -4,12 +4,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session, sessionmaker
 
-import app.immutability  # noqa: F401  (registers the session guards)
+import app.immutability as _guards  # noqa: F401  (registers the session guards)
 from app.api.v1 import router
 from app.config import get_settings
 
 REAP_INTERVAL_S = 30
+RETENTION_INTERVAL_S = 3600
 
 
 async def _reaper(application: FastAPI) -> None:
@@ -21,10 +23,27 @@ async def _reaper(application: FastAPI) -> None:
                 await asyncio.to_thread(mgr.reap)
 
 
+def run_retention(days: int, factory: "sessionmaker[Session] | None" = None) -> dict[str, int]:
+    """One automatic retention pass (HORNET_RETENTION_AUTO): the same audited purge as the CLI."""
+    from app import retention
+    from app.db import get_sessionmaker
+
+    with (factory or get_sessionmaker())() as db:
+        return retention.purge(db, days, actor="retention-auto")
+
+
+async def _retention(days: int) -> None:
+    while True:
+        await asyncio.sleep(RETENTION_INTERVAL_S)
+        with contextlib.suppress(Exception):
+            await asyncio.to_thread(run_retention, days)
+
+
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     task = asyncio.create_task(_reaper(application))
     settings = get_settings()
+    purger = asyncio.create_task(_retention(settings.retention_days)) if settings.retention_auto else None
     if settings.gateway_enabled:  # fail fast: a gateway without a working runtime would only hand out errors
         from app.db import get_sessionmaker
         from app.gateway.server import start_gateway
@@ -37,12 +56,14 @@ async def lifespan(application: FastAPI):
         yield
     finally:
         task.cancel()
+        if purger is not None:
+            purger.cancel()
         gateway = getattr(application.state, "gateway", None)
         if gateway is not None:  # hang up on attackers first; their twins are destroyed with the connections
             await gateway.close()
-        mgr = getattr(application.state, "manager", None)
-        if mgr is not None:  # never leave attacker runtimes behind
-            await asyncio.to_thread(mgr.shutdown)
+        running = getattr(application.state, "manager", None)
+        if running is not None:  # never leave attacker runtimes behind
+            await asyncio.to_thread(running.shutdown)
 
 
 def create_app() -> FastAPI:

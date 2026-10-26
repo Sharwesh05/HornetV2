@@ -7,6 +7,7 @@ through the HTTP API shows up in the SQL database. The fake credentials are the 
 files the attacker can find (.env, ~/.pgpass, redis.conf), so what they steal actually works.
 """
 import json
+from typing import Any
 
 from app.environment.roles import DB_ROLES, Ctx, runtime_hint
 
@@ -17,7 +18,8 @@ EMULATED = {"postgres": "postgres", "redis": "redis", "http-app": "http", "nginx
 DEFAULT_PORT = {"postgres": 5432, "redis": 6379, "http-app": 8080, "nginx": 80}
 
 
-def _store(ctx: Ctx) -> dict:
+def _store(ctx: Ctx) -> dict[str, Any]:
+    assert ctx.model is not None, "only called when the environment has a data model"
     rows = ctx.table_data()
     return {"tables": {t.name: {"columns": [{"name": c.name, "type": c.type, "ref": c.ref} for c in t.columns],
                                 "rows": rows[t.name]} for t in ctx.model.tables}}

@@ -21,9 +21,9 @@ from app.environment.image_builder import DockerImageBuilder
 from app.gateway.server import start_gateway
 from app.models import GatewayEvent, HoneypotSession, ServiceProfile, SessionEvent, VirtualNode
 from app.orchestration import session_manager as sm
-from app.runtime.docker_driver import HardenedDockerDriver
 from app.runtime.policy import ExecutionPolicy
 from tests.conftest import file_session_factory
+from tests.helpers_runtime import twin_driver
 from tests.test_docker_build import BASE, STACKS, _docker, _running
 from tests.test_gateway import read_until
 
@@ -55,7 +55,7 @@ def env(request, tmp_path_factory):
         profs = [p.behavior_config for p in db.scalars(select(ServiceProfile))]
         e.profile = {p["name"]: p for p in profs}
         e.nodes = {n.virtual_path: n for n in db.scalars(select(VirtualNode))}
-    e.driver = HardenedDockerDriver(client)
+    e.driver = twin_driver(client)
     e.mgr = sm.SessionManager(e.driver, sf, ExecutionPolicy(timeout_ms=8000, max_active_sessions=6), BASE)
     e.mgr.reconcile()  # twins left by an earlier, killed test run would otherwise be counted as ours
     e.cfg = Settings(admin_api_key="x" * 20, gateway_host_key_path=str(tmp_path_factory.mktemp("k") / "host"),
@@ -283,7 +283,9 @@ def test_a_fork_bomb_ends_the_connection_and_the_next_visitor_is_fine(env):
     ok = run_gateway(env, scenario)
     assert ok.stdout == "healthy\n" and env.driver.list_managed() == []
     with env.sf() as s:
-        bombed = [x for x in s.scalars(select(HoneypotSession)) if x.end_reason == "limit exceeded: process limit"]
+        # runc: the process table fills ("process limit"); gVisor: the whole sandbox ends ("runtime stopped")
+        bombed = [x for x in s.scalars(select(HoneypotSession))
+                  if x.end_reason in ("limit exceeded: process limit", "limit exceeded: runtime stopped")]
         assert len(bombed) == 1 and bombed[0].status == "destroyed"       # the cause survives the later cleanup
 
 

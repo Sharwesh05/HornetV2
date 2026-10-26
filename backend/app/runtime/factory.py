@@ -1,4 +1,5 @@
 import threading
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -6,24 +7,35 @@ from app.config import Settings
 from app.orchestration.session_manager import SessionManager
 from app.runtime.driver import RuntimeDriver
 
+if TYPE_CHECKING:
+    from app.ai.synthesis import SynthesisWorker
+
 
 def build_driver(settings: Settings) -> RuntimeDriver:
     if settings.runtime_driver == "docker":
         from app.runtime.docker_driver import HardenedDockerDriver
 
         return HardenedDockerDriver()
+    if settings.runtime_driver == "gvisor":
+        from app.runtime.docker_driver import GVisorDriver
+
+        return GVisorDriver()
     raise ValueError(f"unknown runtime driver {settings.runtime_driver!r}")
 
 
-def build_synthesizer(settings: Settings, db_factory: sessionmaker[Session]):
+def build_synthesizer(settings: Settings, db_factory: sessionmaker[Session]) -> "SynthesisWorker | None":
     """The Phase 5A AI synthesis worker, or None when HORNET_AI_SYNTH_ENABLED is off (the default)."""
     if not settings.ai_synth_enabled:
         return None
-    from app.ai.provider import TemplateProvider
+    from app.ai.provider import AIProvider, TemplateProvider
     from app.ai.synthesis import SynthesisWorker
+
+    provider: AIProvider
 
     if settings.ai_provider == "nim":
         from app.ai.nim_provider import NimProvider
+
+        assert settings.nvidia_api_key is not None  # guaranteed by Settings validation for ai_provider=nim
 
         # its own client: a fast model, a short timeout and no retries (a late answer is a useless answer)
         provider = NimProvider(settings.nvidia_api_key.get_secret_value(), settings.nim_synth_model,

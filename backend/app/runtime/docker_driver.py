@@ -34,10 +34,20 @@ FS_SCAN_LIMIT = 1_048_576  # bytes of `find` output we will read
 
 class HardenedDockerDriver:
     name = "hardened-docker"
+    runtime: str | None = None  # Docker's default OCI runtime (runc)
+    pids_overhead = 0  # threads the runtime itself needs inside the container's pids limit
 
     def __init__(self, client: docker.DockerClient | None = None):
         try:
             self.client = client or docker.from_env()
+        except DockerException as exc:
+            raise RuntimeUnavailable(str(exc)) from exc
+        if self.runtime is not None and self.runtime not in self.available_runtimes():
+            raise RuntimeUnavailable(f"Docker has no '{self.runtime}' runtime (see docs/user-guide.md, gVisor)")
+
+    def available_runtimes(self) -> set[str]:
+        try:
+            return set((self.client.info().get("Runtimes") or {}).keys())
         except DockerException as exc:
             raise RuntimeUnavailable(str(exc)) from exc
 
@@ -89,9 +99,10 @@ class HardenedDockerDriver:
                 mem_limit=mem,
                 memswap_limit=mem,
                 nano_cpus=int(policy.cpus * 1_000_000_000),
-                pids_limit=policy.pids,
+                pids_limit=policy.pids + self.pids_overhead,
                 ulimits=[Ulimit(name="nofile", soft=policy.nofile, hard=policy.nofile)],
                 init=True,
+                runtime=self.runtime,
                 log_config=LogConfig(type=LogConfig.types.NONE),
                 labels={LABEL: "true", "com.hornet.session_id": spec.session_id},
             )
@@ -278,3 +289,16 @@ class HardenedDockerDriver:
         if hung:
             raise RuntimeKilled("filesystem observer did not finish")
         return parse_find(out)
+
+
+class GVisorDriver(HardenedDockerDriver):
+    """The same hardened container, run under gVisor (Docker runtime `runsc`, Linux only). The visitor's system calls
+    go to gVisor's user-space kernel instead of the host kernel, which removes the shared-kernel escape path that
+    plain containers have. Every other control (no network, no capabilities, limits, read-only root) is unchanged."""
+
+    name = "gvisor"
+    runtime = "runsc"
+    # Under gVisor the pids cgroup counts the sandbox's own host threads (about 32 when idle), not the visitor's
+    # processes one for one. Without headroom a small policy limit stops the sandbox from starting. When the limit
+    # is hit, gVisor ends the whole twin (the host is unaffected), so a fork bomb still ends only that visitor.
+    pids_overhead = 64

@@ -33,7 +33,7 @@ class FakeDriver:
         rt = self.runtimes[runtime_id]
         if "HORNET:" in command:
             for line in command.split("\n")[1:]:  # special test commands behave the same inside the stateful wrapper
-                if line in ("saturate", "cannot-fork", "flood") or line.startswith("hit "):
+                if line in ("saturate", "cannot-fork", "flood", "sandbox-dies") or line.startswith("hit "):
                     return self.exec(runtime_id, spec, line, policy)
             return self._stateful(rt, command, policy)
         if command.startswith("touch "):
@@ -47,6 +47,9 @@ class FakeDriver:
         if command == "bomb":
             rt["alive"] = False
             return ExecResult(None, "", "", True, False, policy.timeout_ms + 3000, runtime_killed=True)
+        if command == "sandbox-dies":  # gVisor: a fork bomb returns at once, then the whole sandbox ends
+            rt["alive"] = False
+            return ExecResult(0, "", "", False, False, 5)
         if command == "saturate":  # a fork bomb that returns normally but leaves the process table full
             rt["procs"] = 10_000
             return ExecResult(0, "", "", False, False, 5)

@@ -51,7 +51,8 @@ class ShellState:
         rc, cwd = int(parts[0]), parts[1]
         if cwd.startswith("/") and len(cwd) <= MAX_CWD and "\n" not in cwd:
             self.cwd = cwd
-        env, size = {}, 0
+        env: dict[str, str] = {}
+        size = 0
         for item in parts[2:]:
             name, sep, value = item.partition("=")
             if not sep or not _NAME.match(name) or name in _SKIP or name.startswith("BASH_") or len(value) > MAX_VALUE:

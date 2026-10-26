@@ -11,6 +11,7 @@ Rejections carry a short reason, never the rejected content.
 """
 import json
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
@@ -65,7 +66,7 @@ SHAPES: dict[str, tuple[type[_Strict], ...]] = {
 }
 
 
-def output_schema(proto: str) -> dict:
+def output_schema(proto: str) -> dict[str, Any]:
     """JSON schema for the provider (schema-constrained decoding where supported). Code still validates."""
     variants = [m.model_json_schema() for m in SHAPES[proto]]
     return variants[0] if len(variants) == 1 else {"oneOf": variants}
@@ -109,14 +110,14 @@ _OK_IP = re.compile(r"^(?:203\.0\.113\.\d+|198\.51\.100\.\d+|192\.0\.2\.\d+|10\.
 class Verdict:
     ok: bool
     reason: str = ""  # why it was rejected (never the content)
-    proposal: dict | None = None  # the normalized, accepted proposal
+    proposal: dict[str, Any] | None = None  # the normalized, accepted proposal
 
 
 def _reject(reason: str) -> Verdict:
     return Verdict(False, reason)
 
 
-def _strings(value: Any):
+def _strings(value: Any) -> Iterator[str]:
     if isinstance(value, str):
         yield value
     elif isinstance(value, dict):
@@ -136,7 +137,7 @@ def _depth(value: Any, level: int = 0) -> int:
     return level
 
 
-def _sensitive(proposal: dict) -> str | None:
+def _sensitive(proposal: dict[str, Any]) -> str | None:
     for text in _strings(proposal):
         if any(f.kind in SECRET_KINDS for f in find_secrets(text, SECRET_KINDS)):
             return "contains secret-like data"

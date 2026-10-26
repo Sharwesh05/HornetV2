@@ -16,7 +16,7 @@ The attacker never waits for these calls: synthesis runs after the command's rep
 | 1 | 1252 ms | 2033 ms | 2838 ms | 20 | 0 | 0 | 0 |
 | 2 | 973 ms | 2342 ms | 2998 ms | 17 | 0 | 0 | 3 (HTTP 429, rate limit) |
 
-Raw rows of the last run: `synthesis_nim-nvidia_nemotron-3-super-120b-a12b.csv`. Pipeline overhead without a model
+Raw rows of run 2: `synthesis_nim-nvidia_nemotron-3-super-120b-a12b_2026-10-19.csv` (run 1 was overwritten before files were dated). Pipeline overhead without a model
 (context + validation + storage) is at most 1 ms per request (`synthesis_fake.csv`).
 
 ## How the default was chosen
@@ -48,3 +48,15 @@ python -m scripts.measure_synthesis --provider nim --timeout 3             # def
 python -m scripts.measure_synthesis --provider nim --model <id> --thinking # compare with thinking on
 ```
 Free-tier rate limits (HTTP 429) appear when runs are repeated back to back; they are recorded as `fallback`.
+
+## Later runs (current demo model)
+
+That model returned HTTP 404 for this key from 2026-10-20. The demo now uses `nvidia/nemotron-3.5-super-vl-120b-a12b`
+with the same settings (thinking off, no guided decoding, 3 s timeout):
+
+| Date | Median | p95 | Accepted | File |
+|---|---|---|---|---|
+| 2026-10-20 | 869 ms | 3001 ms | 14 / 20 (6 timeouts) | `synthesis_nim-nvidia_nemotron-3.5-super-vl-120b-a12b_2026-10-20.csv` |
+| 2026-10-21 | 529 ms | 799 ms | 19 / 20 (1 timeout) | `synthesis_nim-nvidia_nemotron-3.5-super-vl-120b-a12b_2026-10-21.csv` |
+
+The same model, one day apart: hosted capacity varies. Results are kept per model and day.

@@ -5,6 +5,7 @@
 A build either produces a complete, validated *draft* snapshot or nothing. It never touches the
 currently published snapshot; publishing stays an explicit admin action.
 """
+import secrets
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,6 +31,11 @@ from app.models import (
 from app.profile import SanitizedProfile
 from app.sanitization.ai_review import review_profile
 from app.sanitization.sanitizer import SanitizationFailure, assert_clean, sanitize
+
+
+def build_tag(profile_hash: str, now: datetime) -> str:
+    """A unique, readable image tag for one build: hornet-twin:<profile>-<UTC time>-<random>."""
+    return f"hornet-twin:{profile_hash[:12]}-{now:%Y%m%d-%H%M%S}-{secrets.token_hex(2)}"
 
 
 class BuildFailed(Exception):
@@ -123,7 +129,9 @@ def build_from_docker(
         ctx_dir = build_dir / profile.profile_hash[:12]
         report["context_sha256"] = write_context(plan, ctx_dir, base_image, profile.profile_hash)
         try:
-            image_id = image_builder.build(ctx_dir, f"hornet-twin:{profile.profile_hash[:12]}")
+            # a tag per build: with one tag per server, each rebuild silently took the tag from the previous image,
+            # leaving the published one untagged, and `docker image prune` deletes untagged images
+            image_id = image_builder.build(ctx_dir, build_tag(profile.profile_hash, now))
         except ImageBuildError as exc:
             raise BuildFailed("image", str(exc), report) from exc
         report["image"] = {"digest": image_id, "base": base_image}

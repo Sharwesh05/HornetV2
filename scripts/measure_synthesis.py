@@ -7,7 +7,7 @@
 
 Only synthetic data is sent: a fixed demo schema (table and column names) and the sample requests below. Each
 request runs through the real SynthesisWorker (context builder, hard timeout, validator) against a throwaway
-SQLite database. Results go to docs/results/synthesis_<provider>.csv; a summary is printed.
+SQLite database. Results go to docs/results/synthesis_<provider>_<date>.csv; a summary is printed.
 """
 import argparse
 import csv
@@ -15,6 +15,7 @@ import statistics
 import sys
 import tempfile
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -134,9 +135,10 @@ def main() -> None:
         rows = [r.response_metadata | {"status": r.validation_status} for r in db.scalars(select(AiSynthesis))]
     out_dir = ROOT / "docs" / "results"
     out_dir.mkdir(parents=True, exist_ok=True)
+    model_name = getattr(provider, "model", None) or "fake"  # the model actually used (from --model or .env)
     label = args.provider if args.provider == "fake" else (
-        f"nim-{(args.model or 'default').replace('/', '_')}" + ("-thinking" if args.thinking else ""))
-    out = out_dir / f"synthesis_{label}.csv"
+        f"nim-{model_name.replace('/', '_')}" + ("-thinking" if args.thinking else ""))
+    out = out_dir / f"synthesis_{label}_{datetime.now(UTC):%Y-%m-%d}.csv"  # one file per model and day: history kept
     with out.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh, lineterminator="\n")
         w.writerow(["proto", "request", "status", "reason", "latency_ms", "provider"])

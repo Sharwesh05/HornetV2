@@ -1,8 +1,8 @@
 # Hornet v2: Reading Guide
 
-A map for reading the code, written after reading the source (not just the docs). For full detail see `architecture.md`; for how to run it see `README.md`.
+A map for reading the code, written after reading the source (not just the docs). For full detail see `architecture.md`; to run it, `docs/user-guide.md`.
 
-Last checked: 2026-10-18, on Linux (CachyOS), Python 3.14 venv, **Docker daemon not running**.
+Last checked: 2026-10-21 (after Phase 8), on Linux (CachyOS), Python 3.14, Docker running.
 
 ## 1. The idea in 30 seconds
 
@@ -12,6 +12,8 @@ real Docker project (read-only) -> sanitize -> synthetic environment plan
    -> attacker SSHs in -> gets a disposable container twin from that image
    -> commands really run there; fake Postgres/Redis/HTTP answer on loopback
    -> every command, file change and service request is stored as evidence
+   -> requests the fakes cannot answer: an AI suggestion, validated, kept for investigators, never shown to the visitor
+   -> the dashboard shows it live, as a "What happened" summary and a replay
 ```
 
 Rules that shape the code:
@@ -28,11 +30,13 @@ All paths under `backend/app/` unless noted.
 | File | What it does |
 |---|---|
 | `main.py` | FastAPI app. Lifespan starts a 30 s reaper task and, if `HORNET_GATEWAY_ENABLED`, the SSH gateway. Shutdown destroys every twin. |
-| `config.py` | One `Settings` object (`HORNET_` prefix). Refuses weak admin key, SQLite in prod, non-loopback gateway outside prod, bad NIM config. |
+| `config.py` | One `Settings` object (`HORNET_` prefix). Refuses weak admin key, SQLite in prod, bad NIM config, wildcard dashboard origins, and in the demo profile (`dev`) anything that loosens it (non-loopback gateway or origins, raw command storage, a looser limit). `safety_summary()` backs `python -m scripts.dev safety`. |
 | `models.py` | 12 tables. `SnapshotStatus` and `SessionStatus` enums live here. |
 | `immutability.py` | SQLAlchemy `before_flush` hook. Blocks edits to published snapshots and their nodes. Makes event, audit, observation and AI tables append-only. Only `published -> archived` is allowed. |
+| `retention.py` | The one audited path that may delete recorded sessions (`python -m scripts.dev purge`). |
 | `services.py` | Create/validate/publish snapshots, write audit rows. Publish archives the old one in the same transaction. |
-| `api/v1.py` | All 17 routes. Maps manager errors to HTTP codes. `api/auth.py` is a constant-time `X-API-Key` check. |
+| `api/v1.py` | All 20 REST routes (incl. executions, overlay, tree-state). Maps manager errors to HTTP codes. `api/auth.py` is a constant-time `X-API-Key` check. |
+| `api/live.py` | The dashboard's live WebSocket feed: key in the first message, foreign origins refused, polls the database every second. |
 | `graph.py` | `normalize_path` and `validate_tree`: the path and tree rules. |
 
 ### Build pipeline (Phase 3)
@@ -49,7 +53,7 @@ All paths under `backend/app/` unless noted.
 | `environment/validator.py` | Checks tree validity, owners exist, credentials match across files, no unknown emails or IPs, no secret-like data. |
 | `environment/image_builder.py` | Writes the Docker context and builds `FROM hornet-twin-base:2`. Files under `/tmp` and `/home/user` are stored in a seed dir and copied into tmpfs at start. |
 | `environment/pipeline.py` | `build_from_docker` runs all of the above. On any failure it rolls back, removes the image and audits. It never publishes. |
-| `ai/` | `AIProvider` protocol, offline `TemplateProvider`, `NimProvider` (NVIDIA, retries, JSON repair), `enrichment.py` + `doc_validator.py` (AI-written extra files, strictly validated). |
+| `ai/` (build time) | `AIProvider` protocol, offline `TemplateProvider`, `NimProvider` (NVIDIA, retries, JSON repair, optional thinking-off and no guided decoding), `enrichment.py` + `doc_validator.py` (AI-written extra files, strictly validated). |
 
 ### Run-time plane (Phases 2 and 4)
 | File | What it does |
@@ -61,10 +65,21 @@ All paths under `backend/app/` unless noted.
 | `orchestration/lifecycle.py` | Legal state transitions. |
 | `orchestration/shell_state.py` | Wraps each command so cwd and exported vars carry to the next command, using a random nonce marker. |
 | `orchestration/linker.py` | Maps paths named in a command to graph nodes (`resource_access`). Observation, not proof. |
+| `orchestration/service_events.py` | The contract for events the fake services write (`docs/service-events.md`). |
+| `ai/synthesis.py` (+ `synthesis_context.py`, `synthesis_validator.py`) | Phase 5A: background worker that turns `unsupported` service events into validated AI suggestions in `ai_synthesis`, never served, never in the evidence. |
 | `gateway/server.py` | asyncssh server: login rules, per-IP limits, one twin per connection, exec and PTY shell modes, refuses SFTP and forwarding. Never shows internal errors. |
 | `gateway/auth.py` | Accepts on the Nth attempt or a known weak password. Creates a stable host key. |
 | `runtime/factory.py` | Builds one shared `SessionManager`. On creation it removes orphan twin containers. |
-| `twin-image/emulator/hornet_emulator.py` | 905-line stdlib program run inside each twin: HTTP API, Postgres wire protocol, Redis. Logs events to `/run/hornet/events.jsonl`. Emits `unsupported=true` for requests it cannot answer. |
+| `twin-image/emulator/hornet_emulator.py` | 917-line stdlib program run inside each twin: HTTP API, Postgres wire protocol, Redis. Logs events to `/run/hornet/events.jsonl`. Emits `unsupported=true` for requests it cannot answer. |
+
+### Dashboard (`frontend/src/`)
+| File | What it does |
+|---|---|
+| `App.tsx`, `views/` | Shell (sidebar, theme), Home, Attacker sessions, a visit, Fake environments, Help |
+| `components/ExecutionInspector.tsx` | "What really happened" vs "AI suggestion": two separate panels |
+| `components/Replay.tsx`, `TreeView.tsx`, `Hive.tsx`, `LiveFeed.tsx` | Replay, environment map, the hive of visits, live activity |
+| `components/AttackerText.tsx`, `lib/text.ts` | The only way attacker text is rendered (as text) |
+| `lib/describe.ts`, `lib/story.ts`, `lib/glossary.ts` | Plain-English events, the "What happened" summary (from evidence, no AI), glossary |
 
 ## 3. Suggested reading order
 
@@ -73,52 +88,42 @@ All paths under `backend/app/` unless noted.
 3. `orchestration/session_manager.py` (biggest and most important)
 4. `environment/pipeline.py`, then `sanitization/sanitizer.py`, `roles.py`, `validator.py`
 5. `gateway/server.py`
-6. `twin-image/emulator/hornet_emulator.py` (skim)
-7. Tests: `test_docker_isolation.py`, `test_sanitization.py`, `test_session_manager.py`
+6. `twin-image/emulator/hornet_emulator.py` (skim), then `ai/synthesis.py` and `ai/synthesis_validator.py`
+7. `frontend/src/components/ExecutionInspector.tsx` and `frontend/src/lib/story.ts`
+8. Tests: `test_docker_isolation.py`, `test_docker_build.py` (canaries), `ai_consistency/`, `frontend/src/test/xss.test.tsx`
 
-## 4. Current state (Phase S, 2026-10-18)
+## 4. Where things stand (2026-10-26)
 
-On Linux with Docker running: **422 passed, 0 skipped, 0 failed** (`python -m scripts.dev test`), 3 runs in a row.
-The plan and the phase order are in `~/.claude/plans/dynamic-hatching-cookie.md`. To try the system, follow
-`docs/demo.md`.
+- Phases 0 to 8 done (AI synthesis as 5A: suggestions are recorded, not served). Phase H (hardening) done and
+  awaiting approval: a gVisor driver (`HORNET_RUNTIME_DRIVER=gvisor`), an escape and abuse suite passing on runc and
+  gVisor, PostgreSQL triggers, a strict `prod` profile, mypy, and a deployment design in `deployment/`.
+- 604 backend tests (115 on real Docker or PostgreSQL; 4 skipped as documented exceptions) and 64 dashboard tests
+  pass; CI runs on Linux (unit, Docker on runc and gVisor, dashboard) and Windows (unit).
+- Read next: [user guide](docs/user-guide.md), [demo script](docs/demo-script.md),
+  [threat model](docs/threat-model.md), [evaluation report](docs/evaluation-report.md),
+  [limitations](docs/limitations.md).
+- Bugs found and fixed along the way (each has a regression test): tests reading the developer `.env`; a Linux-only
+  test failure; a test-suite segfault (shared SQLite connection); the secret scanner missing `DB_PASSWORD=...`;
+  commands not stored; a CTE taken for an unknown table and two more AI-validator gaps; attacker text in an
+  `aria-label`; absolute SQLite URLs on Windows; every rebuild stealing the published image's Docker tag.
 
-New in Phase S:
-- Commands are stored (`execution_request.input_text`) with credentials redacted. Raw text is opt-in. There is a
-  retention purge (`app/retention.py`). See README *Command storage*.
-- `GET /sessions/{id}/executions` (commands + raw output, audited) and `GET /sessions/{id}/overlay`.
-- `scripts/dev.py` task runner, `.gitattributes`, CI (`.github/workflows/ci.yml`), `docs/demo.md`.
-- The service-event contract: `docs/service-events.md` and `orchestration/service_events.py`.
+## 5. Next steps
 
-## 5. Issues found and fixed in Phase S
+**Phase H approval.** After that, exposure only on a dedicated server, supervised, per `deployment/README.md`.
+Read for Phase H: `backend/app/runtime/docker_driver.py` (`GVisorDriver`), `backend/tests/test_docker_hardening.py`,
+`backend/migrations/versions/0005_postgres_guards.py`, `backend/app/config.py` (`_prod_profile`), `deployment/`.
+Optional backlog: live AI answers (5B), gateway events view, ATT&CK tags, baselines, slides.
 
-1. The tests read the developer `.env` (19 errors). `conftest.py` now pins every `.env` setting to its default.
-2. The connection-limit test failed on Linux (`ConnectionResetError`). It now accepts both error types.
-3. An intermittent segfault in the test suite: two threads shared one in-memory SQLite connection. Tests now use a
-   SQLite file per test, like the app.
-4. The secret scanner missed `DB_PASSWORD=...` and any `PREFIX_SECRET=value` (`\b` does not match after `_`).
-   This also affected the discovery sanitizer and the build validator.
-5. Typed commands were not stored (only a hash), although the docs said they were.
+## 6. Known limits
 
-## 6. Next steps
+See [docs/limitations.md](docs/limitations.md). In short: shared kernel (weaker on Windows); a careful attacker can
+tell it is a decoy (host kernel, `/.dockerenv`, the fake-service process and the command wrapper in `ps`); no
+interactive programs; some valid SQL is not flagged as a gap; hosted AI models come and go.
 
-Phase 5A (out-of-band AI proposals) is built: `ai/synthesis*.py`, `tests/ai_consistency/`, README *AI synthesis*.
-Phase 6 (dashboard) is built: `frontend/` (start at `src/App.tsx`, then `components/ExecutionInspector.tsx` and
-`components/Replay.tsx`), plus `api/live.py` and `GET /sessions/{id}/tree-state` in `api/v1.py`.
-Phase 7 is built: `docs/limitations.md`, `docs/results/evaluation.md`, `scripts/evaluate.py`,
-`python -m scripts.dev safety`.
-Next, once 7 is approved:
-8 (docs and presentation), and H (full hardening, mandatory).
-
-## 7. Known limits (from the docs, still true)
-
-- Windows isolation is weaker (shared kernel). Don't claim it equals Linux.
-- A careful attacker can detect the honeypot (kernel string, emulator process, asyncssh handshake).
-- No interactive programs (`vim`, `top`); Ctrl-C does not interrupt a running command.
-- Prior art (TwinPot-Gen, HoneyLLM) was read only at abstract level.
-
-## 8. Commands
+## 7. Commands
 
 ```
-python -m scripts.dev setup | test | lint | migrate | api | demo-up | demo-down | purge
-python -m scripts.dev test -m "not docker"      # quick run without Docker
+python -m scripts.dev setup | safety | test | lint | migrate | api | ui | ui-check | demo-up | demo-down | purge
+python -m scripts.dev test -m "not docker"           # quick run without Docker
+.venv/bin/python -m scripts.evaluate                 # re-measure (writes docs/results/)
 ```

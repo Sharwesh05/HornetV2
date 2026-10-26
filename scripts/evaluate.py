@@ -72,7 +72,15 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--sessions", type=int, default=10, help="twins to create for the setup-time measurement")
     ap.add_argument("--reps", type=int, default=5, help="repetitions per command kind")
+    ap.add_argument("--summary-only", action="store_true",
+                    help="rebuild evaluation.md from the recorded samples (evaluation_runtime.csv) without measuring")
     args = ap.parse_args()
+    if args.summary_only:
+        rows = list(csv.DictReader((RESULTS / "evaluation_runtime.csv").open(encoding="utf-8")))
+        write_summary([(r["project"], r["metric"], r["detail"], float(r["ms"])) for r in rows],
+                      measured_at=(RESULTS / "evaluation_runtime.csv").stat().st_mtime)
+        print("rebuilt docs/results/evaluation.md from the recorded samples")
+        return
 
     import docker
     from sqlalchemy.orm import sessionmaker
@@ -173,19 +181,20 @@ async def ssh_round_trips(mgr, cfg, sf, n: int) -> list[tuple[str, float]]:
 
 
 def synthesis_rows() -> list[tuple[str, int, float, float, int]]:
-    """(model, requests, median ms, p95 ms, accepted) for each real-model synthesis measurement on file."""
+    """(model and date, requests, median ms, p95 ms, accepted) for each real-model synthesis measurement on file."""
     rows = []
     for f in sorted(RESULTS.glob("synthesis_nim-*.csv")):
+        day = f.stem.rsplit("_", 1)[-1] if f.stem.rsplit("_", 1)[-1][:2] == "20" else "undated"
         data = list(csv.DictReader(f.open(encoding="utf-8")))
         if not data:
             continue
         lat = [float(r["latency_ms"]) for r in data]
-        rows.append((data[0]["provider"], len(data), statistics.median(lat), pct(lat, 0.95),
+        rows.append((f"{data[0]['provider']} ({day})", len(data), statistics.median(lat), pct(lat, 0.95),
                      sum(r["status"] == "accepted" for r in data)))
     return rows
 
 
-def write_summary(samples) -> None:
+def write_summary(samples, measured_at: float | None = None) -> None:
     groups: dict[tuple[str, str, str], list[float]] = {}
     for p, m, d, ms in samples:
         groups.setdefault((m, d, p), []).append(ms)
@@ -194,7 +203,8 @@ def write_summary(samples) -> None:
     lines = [
         "# Evaluation: runtime measurements (Phase 7.3)",
         "",
-        f"Measured {datetime.now(UTC):%Y-%m-%d %H:%M} UTC with `python -m scripts.evaluate` on {platform.system()} "
+        f"Measured {datetime.fromtimestamp(measured_at, UTC) if measured_at else datetime.now(UTC):%Y-%m-%d %H:%M} UTC "
+        f"with `python -m scripts.evaluate` on {platform.system()} "
         f"{platform.release()}, Python {platform.python_version()}, Docker {docker_version or '?'}, "
         f"{platform.machine()}. Hardened-Docker runtime, default demo limits, offline builds. Every sample is in "
         "`evaluation_runtime.csv`.",
