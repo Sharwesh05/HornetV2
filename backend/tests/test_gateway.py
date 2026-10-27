@@ -270,6 +270,35 @@ def test_interactive_shell_keeps_directory_and_variables(tmp_path, session_facto
         assert "/var/log" in cwds
 
 
+def test_resizing_the_terminal_is_silent_and_updates_the_width(tmp_path, session_factory, db):
+    """Regression: a window resize used to print '^C' and a new prompt (garbling a half-typed line), and the shell
+    kept the old COLUMNS/LINES."""
+    mgr, _, cfg = make_env(tmp_path, session_factory, db)
+
+    async def main():
+        gw = await start_gateway(mgr, cfg, session_factory, port=0)
+        try:
+            conn = await connect(gw)
+            proc = await conn.create_process(term_type="xterm", term_size=(100, 30))
+            await read_until(proc.stdout, "$ ")
+            proc.stdin.write("echo $COL")                       # half-typed when the window changes size
+            await read_until(proc.stdout, "echo $COL")
+            proc.change_terminal_size(60, 20)
+            proc.change_terminal_size(72, 25)
+            proc.stdin.write("UMNS $LINES\n")
+            screen = await read_until(proc.stdout, "$ ")              # everything up to the next prompt
+            proc.stdin.write("exit\n")
+            await proc.wait()
+            conn.close()
+            return screen
+        finally:
+            await gw.close()
+
+    screen = run(main())
+    assert "^C" not in screen and screen.count("$ ") == 1          # no stray interrupt, no extra prompt
+    assert "72 25" in screen                                        # the shell sees the new size
+
+
 def test_piped_shell_without_a_terminal(tmp_path, session_factory, db):
     mgr, _, cfg = make_env(tmp_path, session_factory, db)
 

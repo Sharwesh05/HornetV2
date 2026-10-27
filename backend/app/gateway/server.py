@@ -281,8 +281,9 @@ async def _shell_mode(gw: Gateway, st: ConnState, process, sid: uuid.UUID) -> No
             return
         process.stdout.write("\n" + _last_login(st.ip))
     idle = gw.manager.policy.idle_ttl_s
+    prompt = True
     while not st.dead:
-        if pty:
+        if pty and prompt:
             cwd, host = mgr.shell_context(sid)
             process.stdout.write(f"user@{host}:{_short_cwd(cwd)}$ ")
         try:
@@ -290,10 +291,20 @@ async def _shell_mode(gw: Gateway, st: ConnState, process, sid: uuid.UUID) -> No
         except TimeoutError:
             process.stdout.write("\ntimed out waiting for input: auto-logout\n")
             break
-        except (asyncssh.TerminalSizeChanged, asyncssh.BreakReceived, asyncssh.SignalReceived):
+        except asyncssh.TerminalSizeChanged as size:
+            # the client's window changed size: like a real shell, say nothing (the half-typed line stays in the
+            # line editor) and give later commands the new width and height
+            if pty:
+                await asyncio.to_thread(mgr.configure_shell, sid, {"COLUMNS": str(size.width or 80),
+                                                                    "LINES": str(size.height or 24)})
+            prompt = False  # keep reading the same line: no new prompt
+            continue
+        except (asyncssh.BreakReceived, asyncssh.SignalReceived):
             if pty:
                 process.stdout.write("^C\n")
+            prompt = True
             continue
+        prompt = True
         if not line:  # EOF: client closed its end (ssh -T pipes, Ctrl-D)
             break
         command = line.strip()
