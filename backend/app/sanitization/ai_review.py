@@ -23,6 +23,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
+from app.ai.nim_provider import AIProviderError
 from app.ai.provider import AIProvider
 from app.profile import SanitizedProfile, ServiceSpec
 from app.sanitization.sanitizer import SanitizationFailure, assert_clean, profile_hash
@@ -236,7 +237,9 @@ def review_profile(profile: SanitizedProfile, provider: AIProvider, mode: str) -
             stats.errors += 1
             if mode == "required":
                 kind = type(e).__name__ if not isinstance(e, ValidationError) else "InvalidResponse"
-                raise SanitizationFailure(f"AI sanitization review failed ({kind})") from None
+                # provider errors carry a short reason that never includes the key (timeout, HTTP status, cut off)
+                reason = f": {e}" if isinstance(e, AIProviderError) else ""
+                raise SanitizationFailure(f"AI sanitization review failed ({kind}{reason})") from None
             continue
         _apply(_fields(svc), resp.findings, keep_terms, stats)
         for name in resp.secret_env_names:
