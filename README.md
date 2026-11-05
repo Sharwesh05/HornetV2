@@ -10,7 +10,7 @@ A honeypot for Docker environments. It observes an authorized real server, build
 | I want to... | Read |
 |---|---|
 | Install, run and use it (Linux; Windows notes) | [docs/user-guide.md](docs/user-guide.md) |
-| Present it | [docs/demo-script.md](docs/demo-script.md) |
+| Present it | [docs/demo-commands.md](docs/demo-commands.md) (commands, in order) and [docs/demo-script.md](docs/demo-script.md) (what to say) |
 | Understand what is built and how | [architecture.md](architecture.md), then [READING_GUIDE.md](READING_GUIDE.md) for the code |
 | Know what it protects against, and what not | [docs/threat-model.md](docs/threat-model.md), [docs/limitations.md](docs/limitations.md) |
 | See the measurements and tests | [docs/evaluation-report.md](docs/evaluation-report.md), [docs/results/](docs/results/) |
