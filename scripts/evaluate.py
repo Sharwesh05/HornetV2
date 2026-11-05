@@ -2,6 +2,7 @@
 
     python -m scripts.evaluate                    # all allowlisted demo stacks that are running; 10 sessions, 5 reps
     python -m scripts.evaluate --sessions 20 --reps 10
+    python -m scripts.evaluate --runtime gvisor   # the same under gVisor; writes evaluation_gvisor*.{csv,md}
 
 Needs Docker, hornet-twin-base:2 and the demo stacks (python -m scripts.dev demo-up). Uses a throwaway SQLite
 database and builds offline (template provider), so runtime numbers are not mixed with model latency. Measures:
@@ -72,6 +73,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--sessions", type=int, default=10, help="twins to create for the setup-time measurement")
     ap.add_argument("--reps", type=int, default=5, help="repetitions per command kind")
+    ap.add_argument("--runtime", choices=["docker", "gvisor"], default="docker", help="twin runtime to measure")
     ap.add_argument("--summary-only", action="store_true",
                     help="rebuild evaluation.md from the recorded samples (evaluation_runtime.csv) without measuring")
     args = ap.parse_args()
@@ -94,7 +96,7 @@ def main() -> None:
     from app.environment import pipeline
     from app.environment.image_builder import DockerImageBuilder
     from app.orchestration.session_manager import SessionManager
-    from app.runtime.docker_driver import HardenedDockerDriver
+    from app.runtime.docker_driver import GVisorDriver, HardenedDockerDriver
     from app.runtime.policy import ExecutionPolicy
 
     client = docker.from_env()
@@ -120,7 +122,8 @@ def main() -> None:
             services.publish_snapshot(db, snap)
             db.commit()
             image = snap.validation_report["build"]["image"]["digest"]
-        mgr = SessionManager(HardenedDockerDriver(client), sf, ExecutionPolicy(), BASE_IMAGE)
+        driver = GVisorDriver(client) if args.runtime == "gvisor" else HardenedDockerDriver(client)
+        mgr = SessionManager(driver, sf, ExecutionPolicy(), BASE_IMAGE)
         try:
             print(f"[{project}] {args.sessions} session setups...", flush=True)
             for _ in range(args.sessions):
@@ -150,12 +153,13 @@ def main() -> None:
             builder.remove(image)
 
     RESULTS.mkdir(parents=True, exist_ok=True)
-    with (RESULTS / "evaluation_runtime.csv").open("w", newline="", encoding="utf-8") as fh:
+    stem = "evaluation_gvisor" if args.runtime == "gvisor" else "evaluation"
+    with (RESULTS / f"{stem}_runtime.csv").open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh, lineterminator="\n")
         w.writerow(["project", "metric", "detail", "ms"])
         w.writerows((p, m, d, f"{ms:.1f}") for p, m, d, ms in samples)
-    write_summary(samples)
-    print(f"written: docs/results/evaluation_runtime.csv, docs/results/evaluation.md ({len(samples)} samples)")
+    write_summary(samples, runtime=args.runtime)
+    print(f"written: docs/results/{stem}_runtime.csv, docs/results/{stem}.md ({len(samples)} samples)")
 
 
 async def ssh_round_trips(mgr, cfg, sf, n: int) -> list[tuple[str, float]]:
@@ -194,7 +198,8 @@ def synthesis_rows() -> list[tuple[str, int, float, float, int]]:
     return rows
 
 
-def write_summary(samples, measured_at: float | None = None) -> None:
+def write_summary(samples, measured_at: float | None = None, runtime: str = "docker") -> None:
+    stem = "evaluation_gvisor" if runtime == "gvisor" else "evaluation"
     groups: dict[tuple[str, str, str], list[float]] = {}
     for p, m, d, ms in samples:
         groups.setdefault((m, d, p), []).append(ms)
@@ -206,23 +211,24 @@ def write_summary(samples, measured_at: float | None = None) -> None:
         f"Measured {datetime.fromtimestamp(measured_at, UTC) if measured_at else datetime.now(UTC):%Y-%m-%d %H:%M} UTC "
         f"with `python -m scripts.evaluate` on {platform.system()} "
         f"{platform.release()}, Python {platform.python_version()}, Docker {docker_version or '?'}, "
-        f"{platform.machine()}. Hardened-Docker runtime, default demo limits, offline builds. Every sample is in "
-        "`evaluation_runtime.csv`.",
+        f"{platform.machine()}. {'gVisor (runsc)' if runtime == 'gvisor' else 'Hardened-Docker'} runtime, default demo "
+        f"limits, offline builds. Every sample is in `{stem}_runtime.csv`.",
         "",
         "| Metric | What | Demo server | n | Median (ms) | p95 (ms) | Max (ms) |",
         "|---|---|---|---|---|---|---|",
     ]
     for (m, d, p), v in sorted(groups.items()):
         lines.append(f"| {m} | {d} | {p} | {len(v)} | {statistics.median(v):.0f} | {pct(v, 0.95):.0f} | {max(v):.0f} |")
-    syn = synthesis_rows()
+    syn = synthesis_rows() if runtime == "docker" else []  # AI calls happen outside the twin, so they don't depend on it
     if syn:
         lines += ["", "## AI synthesis (from `scripts/measure_synthesis.py`, 3 s limit)", "",
                   "Out of band: the visitor never waits for these calls.", "",
                   "| Model | Requests | Median (ms) | p95 (ms) | Accepted |", "|---|---|---|---|---|"]
         lines += [f"| {m} | {n} | {med:.0f} | {p95:.0f} | {acc}/{n} |" for m, n, med, p95, acc in syn]
-    lines += ["", "Hosted-model numbers vary from day to day (free tier, shared capacity, rate limits); see "
-              "`synthesis_latency.md`."]
-    (RESULTS / "evaluation.md").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    if syn:
+        lines += ["", "Hosted-model numbers vary from day to day (free tier, shared capacity, rate limits); see "
+                  "`synthesis_latency.md`."]
+    (RESULTS / f"{stem}.md").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
 if __name__ == "__main__":
