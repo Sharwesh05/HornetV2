@@ -51,6 +51,7 @@ def test_a_secret_file_beats_dotenv_and_the_environment_beats_both(tmp_path, mon
     a server with a database secret refuse to start ("SQLite is not allowed")."""
     monkeypatch.delenv("HORNET_ADMIN_API_KEY", raising=False)
     monkeypatch.delenv("HORNET_DATABASE_URL", raising=False)
+    monkeypatch.delenv("HORNET_RETENTION_DAYS", raising=False)  # conftest pins what the developer's .env defines
     secrets_dir, env_file = tmp_path / "secrets", tmp_path / ".env"
     secrets_dir.mkdir()
     (secrets_dir / "hornet_admin_api_key").write_text("from-the-secret-file-0123456789", encoding="utf-8")
