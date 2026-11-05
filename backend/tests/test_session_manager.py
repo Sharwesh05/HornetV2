@@ -151,6 +151,47 @@ def test_a_twin_whose_sandbox_stopped_after_the_command_is_failed(db, published,
         mgr.execute(s.id, "echo hi")
 
 
+def test_check_runtime_keeps_a_healthy_twin(db, published, session_factory):
+    mgr, driver = make(session_factory)
+    s = mgr.create_session()
+    assert mgr.check_runtime(s.id) is True
+    assert s.runtime_id not in driver.destroyed and mgr.active_count() == 1
+
+
+@pytest.mark.parametrize("change,reason", [
+    ({"alive": False}, "limit exceeded: runtime stopped"),      # gVisor: the sandbox ended after the command returned
+    ({"procs": 10_000}, "limit exceeded: process limit"),       # runc: the process table filled up afterwards
+])
+def test_check_runtime_fails_a_twin_that_died_or_filled_up_between_commands(db, published, session_factory, change, reason):
+    """Regression (flaky in CI under gVisor): a fork bomb returns at once, and the check right after the command can run
+    before the sandbox has stopped, leaving the connection open."""
+    mgr, driver = make(session_factory)
+    s = mgr.create_session()
+    driver.runtimes[s.runtime_id].update(change)
+    assert mgr.check_runtime(s.id) is False
+    assert s.runtime_id in driver.destroyed and mgr.active_count() == 0
+    with session_factory() as v:
+        row = v.get(HoneypotSession, s.id)
+        assert row.status == "failed" and row.end_reason == reason
+    assert mgr.destroy_session(s.id, "disconnect").end_reason == reason     # the cause survives the disconnect
+
+
+def test_check_runtime_leaves_a_running_command_alone(db, published, session_factory):
+    mgr, driver = make(session_factory)
+    s = mgr.create_session()
+    driver.runtimes[s.runtime_id]["alive"] = False
+    with mgr._live[s.id].lock:                                              # execute() is in progress and does its own checks
+        assert mgr.check_runtime(s.id) is True
+    assert mgr.active_count() == 1
+
+
+def test_check_runtime_of_an_ended_session_is_false(db, published, session_factory):
+    mgr, _ = make(session_factory)
+    s = mgr.create_session()
+    mgr.destroy_session(s.id)
+    assert mgr.check_runtime(s.id) is False
+
+
 def test_a_busy_but_healthy_twin_is_not_mistaken_for_exhausted(db, published, session_factory):
     mgr, driver = make(session_factory)
     s = mgr.create_session()

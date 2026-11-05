@@ -8,6 +8,7 @@ Refused on purpose: SFTP/SCP and every other subsystem, TCP/UNIX/remote port for
 Anything refused is logged. This module never touches Docker and never shows an attacker an internal error.
 """
 import asyncio
+import contextlib
 import logging
 import time
 import uuid
@@ -25,6 +26,7 @@ from app.orchestration import session_manager as sm
 
 log = logging.getLogger("hornet.gateway")
 MAX_AUTH_ATTEMPTS = 6
+WATCH_INTERVAL_S = 2.0  # how often each connection's twin is checked between commands
 
 
 @dataclass(eq=False)  # identity semantics: instances are tracked in sets
@@ -110,7 +112,23 @@ class Gateway:
                     return None
                 st.session_id = sess.id
                 await self.record(st, "session.created", user=st.username)
+                self.spawn(self.watch(st, sess.id))
             return st.session_id
+
+    async def watch(self, st: ConnState, sid: uuid.UUID) -> None:
+        """Hang up when the twin dies or fills up between commands: nothing else notices while a visitor is idle."""
+        while not st.dead:
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(st.cleaned.wait(), WATCH_INTERVAL_S)
+                return
+            try:
+                alive = await asyncio.to_thread(self.manager.check_runtime, sid)
+            except Exception:  # noqa: BLE001  (a failed check must not end a healthy visit)
+                log.exception("could not check the twin")
+                continue
+            if not alive and not st.dead:
+                st.dead = True
+                st.conn.close()
 
     async def cleanup(self, st: ConnState) -> None:
         sid = st.session_id

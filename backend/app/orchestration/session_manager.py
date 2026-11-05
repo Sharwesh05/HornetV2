@@ -440,6 +440,35 @@ class SessionManager:
                     cwd=live.shell.cwd, service_events=service_events,
                 )
 
+    def check_runtime(self, session_id: uuid.UUID) -> bool:
+        """False once the twin is gone or full; the session is then failed and the twin destroyed. For callers that hold
+        a session between commands (the gateway): a fork bomb returns at once, and under gVisor the sandbox ends a moment
+        later, so execute()'s own checks can run too early to see it."""
+        with self._guard:
+            live = self._live.get(session_id)
+        if live is None:
+            return False
+        if live.lock.locked():
+            return True  # a command is running: execute() checks when it finishes
+        reason = None
+        if not self.driver.is_running(live.runtime_id):
+            reason = "limit exceeded: runtime stopped"
+        elif len(self.driver.processes(live.runtime_id)) >= self.policy.pids - 1:
+            reason = "limit exceeded: process limit"
+        if reason is None:
+            return True
+        if not live.lock.acquire(blocking=False):
+            return True  # a command started meanwhile
+        try:
+            with self.db_factory() as db:
+                sess = db.get(HoneypotSession, session_id)
+                if sess is not None:
+                    self._fail(db, sess, live, reason)
+                    db.commit()
+        finally:
+            live.lock.release()
+        return False
+
     def _exhausted(self, result: ExecResult, processes: list[dict[str, Any]]) -> bool:
         """True when the twin has run out of process slots: the wrapper cannot fork, or the table is full."""
         fork_failed = result.exit_code == 125 and "fork" in result.stderr.lower()

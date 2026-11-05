@@ -299,6 +299,29 @@ def test_resizing_the_terminal_is_silent_and_updates_the_width(tmp_path, session
     assert "72 25" in screen                                        # the shell sees the new size
 
 
+def test_the_connection_ends_when_the_twin_dies_between_commands(tmp_path, session_factory, db, monkeypatch):
+    """Regression (flaky in CI under gVisor): nothing else notices a sandbox that stops while the visitor is idle."""
+    from app.gateway import server
+
+    monkeypatch.setattr(server, "WATCH_INTERVAL_S", 0.05)
+    mgr, driver, cfg = make_env(tmp_path, session_factory, db)
+
+    async def main():
+        gw = await start_gateway(mgr, cfg, session_factory, port=0)
+        try:
+            conn = await connect(gw)
+            await conn.run("echo warm-up", check=False)
+            next(iter(driver.runtimes.values()))["alive"] = False
+            await asyncio.wait_for(conn.wait_closed(), 5)
+        finally:
+            await gw.close()
+
+    run(main())
+    with session_factory() as s:
+        row = s.scalars(select(HoneypotSession)).one()
+        assert row.end_reason == "limit exceeded: runtime stopped" and row.status == "destroyed"
+
+
 def test_piped_shell_without_a_terminal(tmp_path, session_factory, db):
     mgr, _, cfg = make_env(tmp_path, session_factory, db)
 

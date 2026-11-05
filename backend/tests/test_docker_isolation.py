@@ -161,7 +161,12 @@ def test_fork_bomb_is_contained(published, make_mgr):
     started = time.monotonic()
     r = mgr.execute(sess.id, ":(){ :|:& };:")
     assert time.monotonic() - started < 15
-    assert r.runtime_killed  # the saturated twin is detected and terminated, not left wedged
+    # the saturated twin is detected and terminated, not left wedged: at once, or (gVisor: the sandbox ends a moment after
+    # the command returned) by the check the gateway runs between commands
+    deadline = time.monotonic() + 20
+    while not r.runtime_killed and mgr.check_runtime(sess.id) and time.monotonic() < deadline:
+        time.sleep(0.5)
+    assert r.runtime_killed or not mgr.check_runtime(sess.id)
     with pytest.raises(sm.SessionNotUsable):
         mgr.execute(sess.id, "echo hi")
     # host is fine and the orchestrator can still tear down and start fresh twins

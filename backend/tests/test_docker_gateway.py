@@ -283,7 +283,8 @@ def test_a_fork_bomb_ends_the_connection_and_the_next_visitor_is_fine(env):
     ok = run_gateway(env, scenario)
     assert ok.stdout == "healthy\n" and env.driver.list_managed() == []
     with env.sf() as s:
-        # runc: the process table fills ("process limit"); gVisor: the whole sandbox ends ("runtime stopped")
+        # runc: the process table fills ("process limit"); gVisor: the whole sandbox ends ("runtime stopped"),
+        # usually just after the command returned, so the gateway's watcher may be what notices
         bombed = [x for x in s.scalars(select(HoneypotSession))
                   if x.end_reason in ("limit exceeded: process limit", "limit exceeded: runtime stopped")]
         assert len(bombed) == 1 and bombed[0].status == "destroyed"       # the cause survives the later cleanup
