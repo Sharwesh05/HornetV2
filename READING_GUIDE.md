@@ -97,7 +97,7 @@ All paths under `backend/app/` unless noted.
 - Phases 0 to 8 done (AI synthesis as 5A: suggestions are recorded, not served). Phase H (hardening) done and
   approved (2026-11-05): a gVisor driver (`HORNET_RUNTIME_DRIVER=gvisor`), an escape and abuse suite passing on runc and
   gVisor, PostgreSQL triggers, a strict `prod` profile, mypy, and a deployment design in `deployment/`.
-- 605 backend tests (115 on real Docker or PostgreSQL; 4 skipped as documented exceptions) and 64 dashboard tests
+- 612 backend tests (115 on real Docker or PostgreSQL; 4 skipped as documented exceptions) and 64 dashboard tests
   pass; CI runs on Linux (unit, Docker on runc and gVisor, dashboard) and Windows (unit).
 - Read next: [user guide](docs/user-guide.md), [demo script](docs/demo-script.md),
   [threat model](docs/threat-model.md), [evaluation report](docs/evaluation-report.md),

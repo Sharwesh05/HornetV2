@@ -30,6 +30,20 @@ trips each; raw samples in [results/evaluation_runtime.csv](results/evaluation_r
 | A fake website request from `curl` (n = 5) | 125 ms (137) | 110 ms (122) |
 | Building the environment, offline (n = 1) | 3.0 s | 3.2 s |
 
+**Under gVisor** (`python -m scripts.evaluate --runtime gvisor`; [results/evaluation_gvisor.md](results/evaluation_gvisor.md),
+same sample sizes), which is how the demo runs:
+
+| What | shop-prod median (p95) | helpdesk-staging median (p95) |
+|---|---|---|
+| One command over SSH, end to end (n = 20) | 115 ms (123) | 139 ms (151) |
+| Login and first command, including creating the twin (n = 1) | 717 ms | 734 ms |
+| Twin setup until ready, including the fake services (n = 10) | 532 ms (581) | 583 ms (629) |
+| A fake database query from `psql` (n = 5) | 205 ms (219) | 200 ms (224) |
+| A fake website request from `curl` (n = 5) | 128 ms (137) | 132 ms (145) |
+
+gVisor adds about 10 to 35 ms per command over SSH and about 100 to 160 ms to a new twin, on one laptop. Measured once,
+so treat small differences as noise.
+
 About 100 ms of every command is Hornet's own work after the command (filesystem diff, evidence written), on top
 of the command itself. Building with an AI model (sanitization review, data model, documents) took 136 s with
 `nemotron-3-super-120b-a12b` (2026-10-19), 260 to 262 s with `nemotron-3.5-super-vl-120b-a12b` (two builds,
@@ -66,7 +80,7 @@ accepted answers was not measured (e.g. `EXPLAIN` once got table rows instead of
 
 Tests run against real twins, on both demo servers, also in CI on GitHub's Linux runners. There were 44 such tests at
 the presentation; Phase H raised this to 110, with the escape and abuse suite on hardened Docker and gVisor (4 accepted
-skips, explained in the threat model). All timing figures in this report are from hardened Docker, not gVisor.
+skips, explained in the threat model).
 
 | Property | Shown by |
 |---|---|

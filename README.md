@@ -11,6 +11,7 @@ A honeypot for Docker environments. It observes an authorized real server, build
 |---|---|
 | Install, run and use it (Linux; Windows notes) | [docs/user-guide.md](docs/user-guide.md) |
 | Present it | [docs/demo-commands.md](docs/demo-commands.md) (commands, in order) and [docs/demo-script.md](docs/demo-script.md) (what to say) |
+| Deploy it | [docs/deployment-guide.md](docs/deployment-guide.md) |
 | Understand what is built and how | [architecture.md](architecture.md), then [READING_GUIDE.md](READING_GUIDE.md) for the code |
 | Know what it protects against, and what not | [docs/threat-model.md](docs/threat-model.md), [docs/limitations.md](docs/limitations.md) |
 | See the measurements and tests | [docs/evaluation-report.md](docs/evaluation-report.md), [docs/results/](docs/results/) |
@@ -23,7 +24,8 @@ python -m scripts.dev ui                                          # terminal 2: 
 ```
 
 **Status:** Phases 0 to 8 are done (5A for AI synthesis). Phase H (hardening: gVisor, escape suite, PostgreSQL
-guards, `prod` profile, deployment design) is done and approved. 605 backend and 64 dashboard tests pass.
+guards, `prod` profile, deployment design) is done and approved. **Frozen as the final-year project (`v2.0-final`).** 612
+backend and 64 dashboard tests pass. New research goes on its own branch.
 Hornet has never been exposed beyond one machine; any exposure follows `deployment/README.md`.
 
 > The sections from *Goals* to *Capstone scope* below are the **original design**. Where the build differs, notably

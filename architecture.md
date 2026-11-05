@@ -4,7 +4,7 @@ An AI-assisted **digital-twin honeypot for Docker environments**. It watches an 
 builds a sanitized synthetic copy of it, and lets attackers connect over SSH into a disposable, isolated copy where
 their commands really run. Everything they do is recorded as evidence and shown in a dashboard.
 
-*Status: 2026-10-26. Verified on Linux (CachyOS, kernel 7.3, Python 3.14, Docker with runc and gVisor): 605
+*Status: 2026-11-05, final freeze (`v2.0-final`). Verified on Linux (CachyOS, kernel 7.3, Python 3.14, Docker with runc and gVisor): 612
 backend tests (115 against real Docker or PostgreSQL; 4 skipped as documented gVisor/runc exceptions) and 64
 dashboard tests pass; the real-Docker tests also pass with every twin under gVisor; ruff, mypy and ESLint are clean.
 CI runs on GitHub for Linux (unit, real-Docker integration on runc and gVisor, dashboard) and Windows (unit).*
@@ -139,7 +139,7 @@ HornetV2/
 │   │   ├── orchestration/  session_manager, lifecycle, shell_state, linker, service_events
 │   │   └── gateway/        server.py (asyncssh), auth.py
 │   ├── migrations/versions/  0001 schema, 0002 session activity, 0003 gateway events, 0004 command text
-│   └── tests/              25 test files incl. ai_consistency/ (605 tests)
+│   └── tests/              25 test files incl. ai_consistency/ (612 tests)
 ├── frontend/               dashboard (src/views, src/components, src/lib, src/test)
 ├── twin-image/             Dockerfile + emulator/hornet_emulator.py
 ├── main-server/  demo-servers/helpdesk/   two deliberately different demo servers (fake data, canary secrets)
@@ -346,9 +346,9 @@ design; see [threat-model.md](docs/threat-model.md) section 7.
 | Building any server shape | `test_generic_shapes.py`, `test_environment.py`, `test_graph.py` | 111 |
 | AI synthesis | `ai_consistency/`, `test_synthesis.py` | 54 |
 | Fake services | `test_emulator.py` | 45 |
-| Sessions, shell, gateway (in-memory runtime) | `test_session_manager.py`, `test_stateful_shell.py`, `test_gateway.py` | 75 |
+| Sessions, shell, gateway (in-memory runtime) | `test_session_manager.py`, `test_stateful_shell.py`, `test_gateway.py` | 81 |
 | API, dashboard backend, safety, storage, config | `test_api.py`, `test_dashboard_api.py`, `test_demo_safety.py`, `test_command_storage.py`, `test_immutability.py`, `test_config_envfile.py`, `test_fsdiff.py` | 74 |
-| Production profile, deployment files | `test_prod_profile.py`, `test_deployment_files.py` | 15 |
+| Production profile, deployment files | `test_prod_profile.py`, `test_deployment_files.py` | 16 |
 | **Real Docker** | `test_docker_isolation.py`, `test_docker_gateway.py`, `test_docker_build.py` (also under gVisor), `test_docker_hardening.py` (runc and gVisor) | 110 |
 | **PostgreSQL 16** (throwaway container) | `test_postgres.py` | 5 |
 | Dashboard | `frontend/src/test/` (XSS, raw-vs-AI separation, replay of a recorded session, plain English, theme, contrast) | 64 |

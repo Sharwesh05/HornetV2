@@ -1,6 +1,7 @@
-# Demo script (about 9 minutes)
+# Demo script (about 11 minutes)
 
-For the final presentation. Every step shows something that is implemented and tested; the wording about AI is
+For the final presentation, through the hardening phase. The commands, in order, are in
+[demo-commands.md](demo-commands.md). Every step shows something that is implemented and tested; the wording about AI is
 deliberately exact: **AI suggestions are recorded for investigators and never shown to the attacker.** Do not say
 that the AI answers attackers live; that part (5B) is not built.
 
@@ -81,13 +82,30 @@ exit
 
 `python -m scripts.dev safety` (or show its output): "Hornet refuses to start with unsafe settings."
 
-- Measured on hardened Docker (`docs/results/evaluation.md`), not yet under gVisor: commands about 0.1 s end to end;
-  a fresh copy about 0.5 s. AI suggestions: about 1 s, off the attacker's path.
-- 605 backend tests (110 against real Docker: no egress by any protocol, fork bombs, cross-visitor isolation, escape
+- Measured under gVisor (`docs/results/evaluation_gvisor.md`): commands about 0.12 s end to end; a fresh copy about
+  0.55 s. AI suggestions: about 1 s, off the attacker's path.
+- 612 backend tests (110 against real Docker: no egress by any protocol, fork bombs, cross-visitor isolation, escape
   attempts, on both hardened Docker and gVisor; 5 against PostgreSQL) and 64 dashboard tests (including XSS: attacker
   text never runs in our browser).
 
-## F. Honest limits and next step (30 seconds)
+## F. Hardening (2 minutes) — T1
+
+> "After the presentation build, we did a mandatory hardening phase. Each attacker now runs under gVisor, a small kernel
+> of its own, so their commands don't reach our real kernel."
+
+Run the two test commands from section 6 of [demo-commands.md](demo-commands.md) (about 25 seconds in total), with nobody
+logged in to a twin:
+
+> "These are real escape attempts against real twins: Docker socket, host files, kernel settings, raw sockets, the
+> network. They run on both runtimes. The second command shows the database itself refusing to change recorded evidence,
+> even with direct SQL access."
+
+Then open `deployment/` or the deployment guide:
+
+> "This is how it would run on a real server: only the decoy port is public, and everything else is behind a VPN. We've
+> rehearsed the production setup on one machine, but it has never been on a real server or the internet."
+
+## G. Honest limits and next step (30 seconds)
 
 > "A careful attacker can tell it is a decoy, for example from the kernel version. With gVisor their commands no
 > longer reach our real kernel, and an escape test suite passes on both runtimes, but that is testing, not proof. It

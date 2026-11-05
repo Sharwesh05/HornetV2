@@ -107,9 +107,17 @@ Measured on Linux (CachyOS, kernel 7.3, Docker with runc 1.5.2 and gVisor `runsc
 | H7 deployment | `deployment/` (firewall, Docker daemon config, systemd unit, env example, README with retention policy); file checks in `test_deployment_files.py`; not applied to a real server |
 | H8 canaries | the canary tests pass on the final images under both runtimes |
 
-CI confirms this on GitHub (run 41785649644, commit `3bac7f8`, Python 3.12): Linux and Windows unit jobs and the
-dashboard job pass; the Docker job passes with 601 passed and 4 accepted skips on runc, then 111 passed and 4 accepted
-skips under gVisor. The project owner approved Phase H on 2026-11-05.
+The project owner approved Phase H on 2026-11-05. Results below were re-checked at the final freeze: 608 passed and 4
+accepted skips on runc, 111 passed and 4 accepted skips under gVisor.
 
-Not done by Phase H: measuring latency under gVisor (`scripts/evaluate.py` uses hardened Docker), applying `deployment/` to a real server, splitting the gateway from the admin API, load testing.
+Two defects were found and fixed after that approval:
+
+- **A fork bomb under gVisor could leave the connection open.** It stayed contained, but Hornet could check before the
+  sandbox had stopped, and one CI test failed intermittently (runs 42004499809 and 42009471104). The gateway now checks
+  each visitor's twin every 2 s between commands and hangs up when it has died or filled up. The fork-bomb tests then
+  passed 15 runs out of 15 under gVisor with all CPU cores overloaded.
+- **A `.env` overrode secret files.** A leftover `.env` could replace the real admin key or make a server refuse to
+  start. Secret files now rank above `.env` (`test_prod_profile.py`).
+
+Not done by Phase H: applying `deployment/` to a real server, splitting the gateway from the admin API, load testing.
 **Any public exposure happens only per `deployment/README.md` section 6.**

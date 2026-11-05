@@ -1,5 +1,7 @@
 # Deploying Hornet beyond one machine (Phase H7)
 
+**Step-by-step instructions are in [docs/deployment-guide.md](../docs/deployment-guide.md).** This file explains the design.
+
 **Status: approved design, not yet deployed.** These files are checked (see *Verification*) but have not been applied
 to a real host. Phase H is approved, but only as a design for this part: expose Hornet to the internet only for a supervised window
 (section 6).
@@ -61,8 +63,8 @@ structural step if Hornet is run for longer than a supervised window.
 2. WireGuard to the management host and to investigators (`wg0`, e.g. `10.66.0.0/24`).
 3. Docker Engine, then gVisor from the official release (see the user guide), then merge `docker-daemon.json` and
    restart Docker. Check: `docker run --rm --runtime=runsc hello-world`.
-4. A system user `hornet` (member of `docker`), the code in `/opt/hornet`, `python -m scripts.dev setup`, the twin
-   base image (`docker build -t hornet-twin-base:2 twin-image`), and the published snapshot's image (`docker load`).
+4. A system user `hornet` (member of `docker`), the code in `/opt/hornet`, `.venv/bin/pip install -e '.[postgres]'`,
+   **no `.env`** (`python -m scripts.dev setup` creates one, and its values apply to anything not set elsewhere), the twin base image (`docker build -t hornet-twin-base:2 twin-image`), and the published snapshot's image (`docker load`).
 5. Secrets as files, mode 0600, owner root: `/etc/hornet/credentials/{admin_api_key,database_url,nvidia_api_key}`
    (the admin key at least 32 characters; the database URL points at the management host over the VPN, with TLS).
 6. `/etc/hornet/hornet.env` from `hornet.env.example`; `sudo nft -c -f deployment/nftables.conf`, then apply it.
@@ -77,7 +79,7 @@ and the dashboard as a static build (`npm run build`) behind a TLS reverse proxy
 
 - Never in `.env`, images, logs or the repository. On a server: systemd credentials (this setup), or Docker/Kubernetes
   secrets mounted at `/run/secrets`. Hornet reads a secret file named like the setting (e.g. `hornet_admin_api_key`)
-  when the environment variable is not set; `HORNET_SECRETS_DIR` overrides the directory.
+  when the environment variable is not set (a secret file beats a `.env`); `HORNET_SECRETS_DIR` overrides the directory.
 - Rotate the admin key and the NVIDIA key before the exposure window and after it.
 
 ## 5. Data retention policy
