@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 
 DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
-DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b"  # check /v1/models: the hosted catalog changes
+DEFAULT_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"  # check /v1/models: the hosted catalog changes
 _RETRY_STATUS = {408, 429, 500, 502, 503, 504}
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.I)
 _THINK = re.compile(r"<think>.*?(?:</think>|$)", re.S | re.I)  # reasoning models may emit their thoughts first

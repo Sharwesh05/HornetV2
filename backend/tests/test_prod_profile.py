@@ -46,6 +46,27 @@ def test_secrets_can_come_from_mounted_secret_files(tmp_path, monkeypatch):
     assert Settings(_env_file=None, _secrets_dir=tmp_path).admin_api_key == "from-a-secret-file-0123456789"
 
 
+def test_a_secret_file_beats_dotenv_and_the_environment_beats_both(tmp_path, monkeypatch):
+    """Regression: `.env` used to outrank secret files, so a leftover .env silently replaced the real admin key and made
+    a server with a database secret refuse to start ("SQLite is not allowed")."""
+    monkeypatch.delenv("HORNET_ADMIN_API_KEY", raising=False)
+    monkeypatch.delenv("HORNET_DATABASE_URL", raising=False)
+    secrets_dir, env_file = tmp_path / "secrets", tmp_path / ".env"
+    secrets_dir.mkdir()
+    (secrets_dir / "hornet_admin_api_key").write_text("from-the-secret-file-0123456789", encoding="utf-8")
+    (secrets_dir / "hornet_database_url").write_text("postgresql+psycopg://h:p@db/h", encoding="utf-8")
+    env_file.write_text("HORNET_ADMIN_API_KEY=from-the-dotenv-file-0123456789\n"
+                        "HORNET_DATABASE_URL=sqlite:///./x.db\nHORNET_RETENTION_DAYS=7\n", encoding="utf-8")
+
+    s = Settings(_env_file=env_file, _secrets_dir=secrets_dir)
+    assert s.admin_api_key == "from-the-secret-file-0123456789"
+    assert s.database_url == "postgresql+psycopg://h:p@db/h"
+    assert s.retention_days == 7                                            # .env still supplies everything else
+
+    monkeypatch.setenv("HORNET_ADMIN_API_KEY", "from-the-environment-0123456789")
+    assert Settings(_env_file=env_file, _secrets_dir=secrets_dir).admin_api_key == "from-the-environment-0123456789"
+
+
 def test_automatic_retention_uses_the_audited_purge(db, session_factory):
     old = HoneypotSession(snapshot_id=uuid.uuid4(), status="destroyed", started_at=datetime.now(UTC) - timedelta(days=50),
                           ended_at=datetime.now(UTC) - timedelta(days=45))

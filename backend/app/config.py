@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 # backend/app/config.py -> app -> backend -> repo root. The repo-root .env is found from any working
 # directory; a .env in the current directory (listed last) still overrides it.
@@ -52,9 +52,18 @@ _PLACEHOLDER_KEYS = {"change-me", "changeme", "admin", "password", "secret", "te
 
 class Settings(BaseSettings):
     # Secrets may also come from files named like the setting (e.g. /run/secrets/hornet_admin_api_key), as mounted by
-    # Docker or Kubernetes secrets; environment variables and .env still take precedence.
+    # Docker or Kubernetes secrets. Order: environment variables, secret files, then .env (settings_customise_sources).
     model_config = SettingsConfigDict(env_prefix="HORNET_", env_file=ENV_FILES, env_file_encoding="utf-8-sig",
                                       extra="ignore", secrets_dir=SECRETS_DIR if Path(SECRETS_DIR).is_dir() else None)
+
+    @classmethod
+    def settings_customise_sources(
+        cls, settings_cls: type[BaseSettings], init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource, dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # a leftover .env must never replace a deliberately mounted secret
+        return init_settings, env_settings, file_secret_settings, dotenv_settings
 
     env: Literal["dev", "prod"] = "dev"
     database_url: str = "sqlite:///./hornet_dev.db"
@@ -86,7 +95,7 @@ class Settings(BaseSettings):
         default=None, validation_alias=AliasChoices("HORNET_NVIDIA_API_KEY", "NVIDIA_API_KEY")
     )
     nim_base_url: str = "https://integrate.api.nvidia.com/v1"
-    nim_model: str = "nvidia/nemotron-3-super-120b-a12b"  # run GET /v1/models to see what your key can use
+    nim_model: str = "nvidia/nemotron-3.5-lightning-30b-a3b"  # run GET /v1/models to see what your key can use
     nim_timeout_s: float = Field(default=90.0, gt=0, le=300)
     nim_max_tokens: int = Field(default=4096, ge=256, le=32768)
     # How the AI sanitizer behaves (it runs AFTER the deterministic redaction, never instead of it):
@@ -100,7 +109,7 @@ class Settings(BaseSettings):
     ai_synth_timeout_s: float = Field(default=3.0, ge=0.2, le=30)  # hard limit per model call; then "timeout"
     ai_synth_max_per_session: int = Field(default=20, ge=1, le=500)  # model calls per session; then "fallback"
     # measured (docs/results/synthesis_latency.md): with thinking off and no guided decoding, ~1 s median
-    nim_synth_model: str = "nvidia/nemotron-3-super-120b-a12b"
+    nim_synth_model: str = "nvidia/nemotron-3.5-lightning-30b-a3b"
 
     # --- attacker-facing SSH gateway (off by default; binds to loopback unless you change it on purpose) ---
     gateway_enabled: bool = False
