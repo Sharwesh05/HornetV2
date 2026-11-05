@@ -1,7 +1,7 @@
 # Deploying Hornet beyond one machine (Phase H7)
 
-**Status: reviewed design, not yet deployed.** These files are checked (see *Verification*) but have not been applied
-to a real host. Do not expose Hornet to the internet until Phase H is approved, and then only for a supervised window
+**Status: approved design, not yet deployed.** These files are checked (see *Verification*) but have not been applied
+to a real host. Phase H is approved, but only as a design for this part: expose Hornet to the internet only for a supervised window
 (section 6).
 
 ## 1. Layout
@@ -96,7 +96,7 @@ many jurisdictions). Check your organisation's rules before collecting it.
 
 ## 6. Before and during an exposure window
 
-1. Phase H approved (all of `docs/threat-model.md` section 7 done); CI green.
+1. CI green on the commit you deploy; `docs/threat-model.md` section 7 still matches it.
 2. On the honeypot host: `python -m scripts.dev test -rs`, then `HORNET_TEST_RUNTIME=gvisor python -m scripts.dev test -rs -m docker`: the escape,
    egress, cross-visitor and exhaustion suite passes on gVisor.
 3. From outside: only TCP 22 answers (`nmap` from another network); the admin API and PostgreSQL do not.

@@ -3,8 +3,8 @@
 Scope: Hornet v2 as built for the demo (hardened-Docker runtime, demo profile `HORNET_ENV=dev`, everything on
 loopback, one Linux machine), plus the Phase H additions: a gVisor runtime, the `prod` profile, database-level guards
 and a deployment design (`deployment/`). Each threat lists its mitigation, the evidence that the mitigation works (a
-test or a measurement), and what remains. *Updated 2026-10-26 from the Phase H results (section 7); Phase H awaits
-approval, and no exposure happens before it.*
+test or a measurement), and what remains. *Updated from the Phase H results (section 7); Phase H was approved on
+2026-11-05. Hornet has not been exposed to the internet.*
 
 ## 1. What we protect
 
@@ -92,7 +92,7 @@ and base images (pinned by version and lockfile, not audited), physical access.
 Retention: `python -m scripts.dev purge` deletes ended sessions older than `HORNET_RETENTION_DAYS` (30) with
 everything recorded for them, and audits the purge.
 
-## 7. Phase H results (2026-10-26, awaiting approval)
+## 7. Phase H results (2026-10-26; CI confirmed 2026-11-04)
 
 Measured on Linux (CachyOS, kernel 7.3, Docker with runc 1.5.2 and gVisor `runsc` from the Arch User Repository):
 
@@ -107,5 +107,9 @@ Measured on Linux (CachyOS, kernel 7.3, Docker with runc 1.5.2 and gVisor `runsc
 | H7 deployment | `deployment/` (firewall, Docker daemon config, systemd unit, env example, README with retention policy); file checks in `test_deployment_files.py`; not applied to a real server |
 | H8 canaries | the canary tests pass on the final images under both runtimes |
 
-Not done by Phase H: applying `deployment/` to a real server, splitting the gateway from the admin API, load testing.
-**No public exposure happens before Phase H is approved,** and then only per `deployment/README.md` section 6.
+CI confirms this on GitHub (run 41785649644, commit `3bac7f8`, Python 3.12): Linux and Windows unit jobs and the
+dashboard job pass; the Docker job passes with 601 passed and 4 accepted skips on runc, then 111 passed and 4 accepted
+skips under gVisor. The project owner approved Phase H on 2026-11-05.
+
+Not done by Phase H: measuring latency under gVisor (`scripts/evaluate.py` uses hardened Docker), applying `deployment/` to a real server, splitting the gateway from the admin API, load testing.
+**Any public exposure happens only per `deployment/README.md` section 6.**

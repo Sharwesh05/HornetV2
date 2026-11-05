@@ -4,7 +4,7 @@ An AI-assisted **digital-twin honeypot for Docker environments**. It watches an 
 builds a sanitized synthetic copy of it, and lets attackers connect over SSH into a disposable, isolated copy where
 their commands really run. Everything they do is recorded as evidence and shown in a dashboard.
 
-*Status: 2026-10-26. Verified on Linux (CachyOS, kernel 7.3, Python 3.14, Docker with runc and gVisor): 604
+*Status: 2026-10-26. Verified on Linux (CachyOS, kernel 7.3, Python 3.14, Docker with runc and gVisor): 605
 backend tests (115 against real Docker or PostgreSQL; 4 skipped as documented gVisor/runc exceptions) and 64
 dashboard tests pass; the real-Docker tests also pass with every twin under gVisor; ruff, mypy and ESLint are clean.
 CI runs on GitHub for Linux (unit, real-Docker integration on runc and gVisor, dashboard) and Windows (unit).*
@@ -29,7 +29,7 @@ and use), [docs/demo-script.md](docs/demo-script.md) (the presentation), [docs/t
 | 6. Dashboard (+ 6.5 redesign) | React dashboard: live feed, session replay, raw-vs-AI inspector, environment map, plain-English summaries | Done |
 | 7. Demo security and evaluation | Egress, cross-session and canary tests; demo safety check; measurements; limitations | Done |
 | 8. Documentation | User guide, threat model, evaluation report, demo script | Done (this phase) |
-| H. Full hardening | gVisor driver, full escape suite, PostgreSQL triggers, `prod` profile, deployment design, mypy | Done, **awaiting approval** |
+| H. Full hardening | gVisor driver, full escape suite, PostgreSQL triggers, `prod` profile, deployment design, mypy | Done, approved 2026-11-05 |
 
 **Size:** about 6,360 lines of backend code, 5,250 lines of backend tests, a 917-line in-twin service emulator,
 2,190 lines of dashboard code and 500 lines of dashboard tests; 12 database tables, 4 migrations, 20 REST routes
@@ -139,7 +139,7 @@ HornetV2/
 │   │   ├── orchestration/  session_manager, lifecycle, shell_state, linker, service_events
 │   │   └── gateway/        server.py (asyncssh), auth.py
 │   ├── migrations/versions/  0001 schema, 0002 session activity, 0003 gateway events, 0004 command text
-│   └── tests/              25 test files incl. ai_consistency/ (604 tests)
+│   └── tests/              25 test files incl. ai_consistency/ (605 tests)
 ├── frontend/               dashboard (src/views, src/components, src/lib, src/test)
 ├── twin-image/             Dockerfile + emulator/hornet_emulator.py
 ├── main-server/  demo-servers/helpdesk/   two deliberately different demo servers (fake data, canary secrets)
@@ -333,7 +333,7 @@ discovery is read-only and allowlisted; secrets are redacted before any model se
 across every output; models never execute anything and their output is validated and kept apart from evidence;
 everything binds to loopback in the demo profile, which refuses to start with unsafe settings. **Not protected:** a
 kernel exploit with the default runc driver (shared kernel; gVisor narrows it), and a careful attacker noticing
-the honeypot. Phase H (done, awaiting approval) added gVisor, the escape suite, database guards and a deployment
+the honeypot. Phase H (done and approved) added gVisor, the escape suite, database guards and a deployment
 design; see [threat-model.md](docs/threat-model.md) section 7.
 
 ---
@@ -346,7 +346,7 @@ design; see [threat-model.md](docs/threat-model.md) section 7.
 | Building any server shape | `test_generic_shapes.py`, `test_environment.py`, `test_graph.py` | 111 |
 | AI synthesis | `ai_consistency/`, `test_synthesis.py` | 54 |
 | Fake services | `test_emulator.py` | 45 |
-| Sessions, shell, gateway (in-memory runtime) | `test_session_manager.py`, `test_stateful_shell.py`, `test_gateway.py` | 74 |
+| Sessions, shell, gateway (in-memory runtime) | `test_session_manager.py`, `test_stateful_shell.py`, `test_gateway.py` | 75 |
 | API, dashboard backend, safety, storage, config | `test_api.py`, `test_dashboard_api.py`, `test_demo_safety.py`, `test_command_storage.py`, `test_immutability.py`, `test_config_envfile.py`, `test_fsdiff.py` | 74 |
 | Production profile, deployment files | `test_prod_profile.py`, `test_deployment_files.py` | 15 |
 | **Real Docker** | `test_docker_isolation.py`, `test_docker_gateway.py`, `test_docker_build.py` (also under gVisor), `test_docker_hardening.py` (runc and gVisor) | 110 |

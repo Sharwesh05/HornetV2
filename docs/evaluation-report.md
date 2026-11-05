@@ -64,8 +64,9 @@ accepted answers was not measured (e.g. `EXPLAIN` once got table rows instead of
 
 ## 4. Isolation (question 3)
 
-Tests run against real hardened-Docker twins (44 tests, none skipped, both demo servers; also in CI on GitHub's
-Linux runners).
+Tests run against real twins, on both demo servers, also in CI on GitHub's Linux runners. There were 44 such tests at
+the presentation; Phase H raised this to 110, with the escape and abuse suite on hardened Docker and gVisor (4 accepted
+skips, explained in the threat model). All timing figures in this report are from hardened Docker, not gVisor.
 
 | Property | Shown by |
 |---|---|

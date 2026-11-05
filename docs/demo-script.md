@@ -81,21 +81,24 @@ exit
 
 `python -m scripts.dev safety` (or show its output): "Hornet refuses to start with unsafe settings."
 
-- Commands: about 0.1 s end to end; a fresh copy: about 0.5 s; AI suggestions: about 1 s, off the attacker's path.
-- 517 backend tests (44 against real Docker: no egress by any protocol, fork bombs, cross-visitor isolation) and
-  64 dashboard tests (including XSS: attacker text never runs in our browser).
+- Measured on hardened Docker (`docs/results/evaluation.md`), not yet under gVisor: commands about 0.1 s end to end;
+  a fresh copy about 0.5 s. AI suggestions: about 1 s, off the attacker's path.
+- 605 backend tests (110 against real Docker: no egress by any protocol, fork bombs, cross-visitor isolation, escape
+  attempts, on both hardened Docker and gVisor; 5 against PostgreSQL) and 64 dashboard tests (including XSS: attacker
+  text never runs in our browser).
 
 ## F. Honest limits and next step (30 seconds)
 
-> "A careful attacker can tell it is a decoy, for example from the kernel version, and the copies share the host's
-> kernel. That is why the next, mandatory phase moves the copies to gVisor and runs a full escape test suite before
-> anything is exposed to the internet."
+> "A careful attacker can tell it is a decoy, for example from the kernel version. With gVisor their commands no
+> longer reach our real kernel, and an escape test suite passes on both runtimes, but that is testing, not proof. It
+> has never been exposed to the internet; that would only happen on a dedicated server, for a short, supervised
+> window."
 
 ## Questions you may get
 
 | Question | Answer |
 |---|---|
-| Can the attacker break out? | Not in our tests (capabilities, socket, mounts, egress, exhaustion). The copies share the kernel, so a kernel exploit is the risk; gVisor is the next phase. |
+| Can the attacker break out? | Not in our tests (capabilities, socket, mounts, egress, exhaustion), on hardened Docker and gVisor. On hardened Docker a kernel exploit is the risk; under gVisor, a gVisor bug is. |
 | Does the AI see our secrets? | No. Secrets are removed by deterministic code first, the AI sees only redacted metadata, code checks again afterwards, and tests check every prompt for planted canaries. |
 | What if the AI is wrong or manipulated? | Its answer is validated in code (no invented tables, no fake successes for writes, no secrets) and it is never shown to the attacker or stored as evidence. |
 | Why not let the AI answer the attacker? | That would let a model shape the evidence. We kept it out of the attacker's path; live answering is an optional extension. |

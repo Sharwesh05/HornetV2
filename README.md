@@ -23,8 +23,8 @@ python -m scripts.dev ui                                          # terminal 2: 
 ```
 
 **Status:** Phases 0 to 8 are done (5A for AI synthesis). Phase H (hardening: gVisor, escape suite, PostgreSQL
-guards, `prod` profile, deployment design) is done and awaiting approval. 604 backend and 64 dashboard tests pass.
-Nothing is exposed beyond one machine until Phase H is approved.
+guards, `prod` profile, deployment design) is done and approved. 605 backend and 64 dashboard tests pass.
+Hornet has never been exposed beyond one machine; any exposure follows `deployment/README.md`.
 
 > The sections from *Goals* to *Capstone scope* below are the **original design**. Where the build differs, notably
 > that AI answers are recorded out of band and never served to attackers, that there is one hardened-Docker runtime,
@@ -787,7 +787,7 @@ reusing). So it is stored with safeguards:
   (`docs/results/evaluation.md`) and the limitations table (`docs/limitations.md`).
 - **Phase 8 (documentation): done.** User guide, demo script (rehearsed end to end), threat model, evaluation
   report with re-checked related work; architecture rewritten to match the build. See *Start here*.
-- **Phase H (hardening): done, awaiting approval.** gVisor driver; escape and abuse suite on runc and gVisor;
+- **Phase H (hardening): done, approved 2026-11-05.** gVisor driver; escape and abuse suite on runc and gVisor;
   concurrency, restart and reaper tests on real Docker; PostgreSQL 16 migrations both ways with database triggers;
   audited admin console and a strict `prod` profile (secret files, automatic retention); mypy; `deployment/`.
   Results: [docs/threat-model.md](docs/threat-model.md) section 7.
